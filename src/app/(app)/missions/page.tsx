@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { MissionCard } from "@/components/MissionCard";
 import { NewMissionModal } from "@/components/NewMissionModal";
 import { FutureMissions } from "@/components/FutureMissions";
+import { PreconfiguredMissions } from "@/components/PreconfiguredMissions";
 import { Button } from "@/components/Button";
 import { categoryMeta } from "@/components/CategoryBadge";
 import { useMissions } from "@/hooks/useMissions";
@@ -14,7 +15,16 @@ import { CATEGORIES, type Category } from "@/data/types";
 import { cn } from "@/lib/utils";
 
 export default function MissionsPage() {
-  const { missions, toggle, fail, addMission, stats } = useMissions();
+  const {
+    missions,
+    allMissions,
+    toggle,
+    fail,
+    addMission,
+    updateSchedule,
+    removeMission,
+    stats,
+  } = useMissions();
   const [modalOpen, setModalOpen] = useState(false);
   // categoria pré-selecionada ao abrir o modal a partir de uma coluna
   const [targetCategory, setTargetCategory] = useState<Category | undefined>(undefined);
@@ -66,7 +76,14 @@ export default function MissionsPage() {
       </div>
 
       {/* aba expansiva de missões agendadas para outros dias */}
-      <FutureMissions />
+      <FutureMissions missions={allMissions} />
+
+      {/* aba expansiva de missões recorrentes (semanais/datas) com editar e remover */}
+      <PreconfiguredMissions
+        missions={allMissions}
+        onUpdateSchedule={updateSchedule}
+        onRemove={removeMission}
+      />
 
       <NewMissionModal
         open={modalOpen}

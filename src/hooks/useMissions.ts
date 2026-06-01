@@ -7,6 +7,7 @@ import {
   isScheduledOn,
   toISODate,
   type Mission,
+  type MissionSchedule,
   type MissionStatus,
 } from "@/data/types";
 
@@ -70,6 +71,16 @@ export function useMissions() {
     setMissions((prev) => [{ ...mission, id: `${mission.id}-${prev.length}` }, ...prev]);
   }, []);
 
+  /** Atualiza a regra de agendamento de uma missão (ex.: editar dias/datas). */
+  const updateSchedule = useCallback((id: string, schedule: MissionSchedule) => {
+    setMissions((prev) => prev.map((m) => (m.id === id ? { ...m, schedule } : m)));
+  }, []);
+
+  /** Remove a missão por completo (some de hoje, futuras e pré-configuradas). */
+  const removeMission = useCallback((id: string) => {
+    setMissions((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
   // Missões que ocorrem HOJE (para as 3 colunas), ordenadas.
   const todayMissions = useMemo(() => {
     const now = new Date();
@@ -88,11 +99,13 @@ export function useMissions() {
   return {
     /** Missões de hoje (filtradas + ordenadas) — usadas nas colunas. */
     missions: todayMissions,
-    /** Todas as missões (incl. futuras) — usadas pela aba "Missões futuras". */
+    /** Todas as missões (incl. futuras) — usadas pelas abas de futuras/pré-configuradas. */
     allMissions: missions,
     toggle,
     fail,
     addMission,
+    updateSchedule,
+    removeMission,
     stats,
   };
 }

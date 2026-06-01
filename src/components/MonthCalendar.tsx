@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { toISODate } from "@/data/types";
 import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -21,22 +22,43 @@ function isSameDay(a: Date, b: Date) {
 }
 
 interface MonthCalendarProps {
-  /** dia selecionado atualmente (controlado) */
-  selected: Date | null;
+  /** dia selecionado (modo único). Em modo múltiplo, use selectedDates. */
+  selected?: Date | null;
+  /** ISO dates selecionadas (modo múltiplo). */
+  selectedDates?: string[];
   /** chamado ao clicar em um dia */
   onSelect: (date: Date) => void;
+  /** datas (ISO) que recebem um marcador (ex.: têm missões agendadas) */
+  markedDates?: Set<string>;
+  /** predicado para marcar dias (útil p/ recorrência sem limite de mês) */
+  isMarked?: (date: Date) => boolean;
+  /** layoutId único da animação de seleção (evita conflito com outro calendário) */
+  layoutId?: string;
 }
 
 /**
  * Calendário mensal leve (sem dependências) no estilo visual do app.
- * Navega entre meses e destaca o dia de hoje. As missões agendadas
- * por dia serão integradas futuramente (escolha de data na missão).
+ * Suporta seleção única (`selected`) ou múltipla (`selectedDates`) e
+ * marcadores em dias específicos (`markedDates`).
  */
-export function MonthCalendar({ selected, onSelect }: MonthCalendarProps) {
+export function MonthCalendar({
+  selected,
+  selectedDates,
+  onSelect,
+  markedDates,
+  isMarked,
+  layoutId = "calendar-selected",
+}: MonthCalendarProps) {
   const today = useMemo(() => new Date(), []);
-  // mês exibido: inicia no mês do dia selecionado ou no mês atual
+  const multiple = Array.isArray(selectedDates);
+
+  // mês exibido: inicia no mês do 1º dia selecionado ou no mês atual
   const [viewDate, setViewDate] = useState(() => {
-    const base = selected ?? today;
+    const base =
+      selected ??
+      (selectedDates && selectedDates.length > 0
+        ? new Date(`${selectedDates[0]}T00:00:00`)
+        : today);
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
 
@@ -57,11 +79,17 @@ export function MonthCalendar({ selected, onSelect }: MonthCalendarProps) {
     setViewDate(new Date(year, month + delta, 1));
   }
 
+  function isSelectedDay(date: Date) {
+    if (multiple) return selectedDates!.includes(toISODate(date));
+    return selected ? isSameDay(date, selected) : false;
+  }
+
   return (
     <div className="rounded-2xl border border-white/[0.06] bg-ink/40 p-4">
       {/* cabeçalho: navegação de mês */}
       <div className="mb-3 flex items-center justify-between">
         <button
+          type="button"
           onClick={() => goToMonth(-1)}
           aria-label="Mês anterior"
           className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-muted transition-colors hover:border-brand/40 hover:text-soft"
@@ -72,6 +100,7 @@ export function MonthCalendar({ selected, onSelect }: MonthCalendarProps) {
           {MONTHS[month]} {year}
         </span>
         <button
+          type="button"
           onClick={() => goToMonth(1)}
           aria-label="Próximo mês"
           className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-muted transition-colors hover:border-brand/40 hover:text-soft"
@@ -94,9 +123,13 @@ export function MonthCalendar({ selected, onSelect }: MonthCalendarProps) {
         {cells.map((date, i) => {
           if (!date) return <span key={`empty-${i}`} />;
           const isToday = isSameDay(date, today);
-          const isSelected = selected ? isSameDay(date, selected) : false;
+          const isSelected = isSelectedDay(date);
+          const marked = isMarked
+            ? isMarked(date)
+            : markedDates?.has(toISODate(date)) ?? false;
           return (
             <button
+              type="button"
               key={date.toISOString()}
               onClick={() => onSelect(date)}
               aria-pressed={isSelected}
@@ -109,16 +142,25 @@ export function MonthCalendar({ selected, onSelect }: MonthCalendarProps) {
                 isToday && !isSelected && "text-brand-light",
               )}
             >
-              {isSelected && (
-                <motion.span
-                  layoutId="calendar-selected"
-                  className="absolute inset-0 -z-10 rounded-lg border border-brand/40 bg-brand/15"
-                  transition={{ type: "spring", damping: 26, stiffness: 320 }}
-                />
-              )}
+              {isSelected &&
+                (multiple ? (
+                  <span className="absolute inset-0 -z-10 rounded-lg border border-brand/40 bg-brand/15" />
+                ) : (
+                  <motion.span
+                    layoutId={layoutId}
+                    className="absolute inset-0 -z-10 rounded-lg border border-brand/40 bg-brand/15"
+                    transition={{ type: "spring", damping: 26, stiffness: 320 }}
+                  />
+                ))}
               {date.getDate()}
-              {isToday && (
-                <span className="absolute bottom-1 h-1 w-1 rounded-full bg-brand-light" />
+              {/* marcador de missões / indicador de hoje */}
+              {(marked || (isToday && !isSelected)) && (
+                <span
+                  className={cn(
+                    "absolute bottom-1 h-1 w-1 rounded-full",
+                    marked ? "bg-brand" : "bg-brand-light",
+                  )}
+                />
               )}
             </button>
           );
