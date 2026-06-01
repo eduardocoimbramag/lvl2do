@@ -2,7 +2,13 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { mockMissions } from "@/data/mockMissions";
-import { SHIFTS, type Mission, type MissionStatus } from "@/data/types";
+import {
+  SHIFTS,
+  isScheduledOn,
+  toISODate,
+  type Mission,
+  type MissionStatus,
+} from "@/data/types";
 
 /** Peso de ordenação por status: ativas primeiro, concluídas, falhadas por último. */
 const STATUS_ORDER: Record<MissionStatus, number> = {
@@ -21,6 +27,17 @@ function sortMissions(missions: Mission[]): Mission[] {
     if (byStatus !== 0) return byStatus;
     return SHIFT_ORDER[a.shift] - SHIFT_ORDER[b.shift];
   });
+}
+
+/**
+ * Diz se uma missão ocorre num dia específico, considerando sua regra.
+ * `today` ocorre apenas no dia atual; `weekly`/`dates` seguem a regra.
+ */
+export function occursOn(mission: Mission, date: Date): boolean {
+  if (mission.schedule.type === "today") {
+    return toISODate(date) === toISODate(new Date());
+  }
+  return isScheduledOn(mission.schedule, date);
 }
 
 /**
@@ -53,17 +70,29 @@ export function useMissions() {
     setMissions((prev) => [{ ...mission, id: `${mission.id}-${prev.length}` }, ...prev]);
   }, []);
 
-  // Lista sempre ordenada (turno + status) para exibição.
-  const sorted = useMemo(() => sortMissions(missions), [missions]);
+  // Missões que ocorrem HOJE (para as 3 colunas), ordenadas.
+  const todayMissions = useMemo(() => {
+    const now = new Date();
+    return sortMissions(missions.filter((m) => occursOn(m, now)));
+  }, [missions]);
 
   const stats = useMemo(() => {
-    const done = missions.filter((m) => m.status === "done");
+    const done = todayMissions.filter((m) => m.status === "done");
     return {
-      total: missions.length,
+      total: todayMissions.length,
       done: done.length,
       xpEarned: done.reduce((sum, m) => sum + m.xp, 0),
     };
-  }, [missions]);
+  }, [todayMissions]);
 
-  return { missions: sorted, toggle, fail, addMission, stats };
+  return {
+    /** Missões de hoje (filtradas + ordenadas) — usadas nas colunas. */
+    missions: todayMissions,
+    /** Todas as missões (incl. futuras) — usadas pela aba "Missões futuras". */
+    allMissions: missions,
+    toggle,
+    fail,
+    addMission,
+    stats,
+  };
 }

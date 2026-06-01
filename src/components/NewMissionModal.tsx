@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Zap } from "lucide-react";
+import { X } from "lucide-react";
 import {
   CATEGORIES,
   DIFFICULTIES,
@@ -32,6 +32,7 @@ interface NewMissionModalProps {
  */
 export function NewMissionModal({ open, onClose, onCreate, initialCategory }: NewMissionModalProps) {
   const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
   const [category, setCategory] = useState<Category>(initialCategory ?? "Profissional");
   const [difficulty, setDifficulty] = useState<Difficulty>("Fácil");
   const [shift, setShift] = useState<Shift>("Manhã");
@@ -48,6 +49,7 @@ export function NewMissionModal({ open, onClose, onCreate, initialCategory }: Ne
     onCreate({
       id: `local-${title}-${xp}-${category}-${shift}`,
       title: title.trim(),
+      description: subtitle.trim() || undefined,
       category,
       difficulty,
       shift,
@@ -55,6 +57,7 @@ export function NewMissionModal({ open, onClose, onCreate, initialCategory }: Ne
       xp,
     });
     setTitle("");
+    setSubtitle("");
     setCategory(initialCategory ?? "Profissional");
     setDifficulty("Fácil");
     setShift("Manhã");
@@ -111,6 +114,19 @@ export function NewMissionModal({ open, onClose, onCreate, initialCategory }: Ne
                 />
               </div>
 
+              {/* subtítulo (opcional) */}
+              <div>
+                <label className="mb-1.5 block text-sm text-muted">
+                  Subtítulo <span className="text-muted/60">(opcional)</span>
+                </label>
+                <input
+                  value={subtitle}
+                  onChange={(e) => setSubtitle(e.target.value)}
+                  placeholder="Ex.: Avançar no roadmap de frontend"
+                  className="w-full rounded-xl border border-white/10 bg-ink px-4 py-2.5 text-sm text-soft placeholder:text-muted/60 focus:border-brand/50 focus:outline-none focus:ring-2 focus:ring-brand/30"
+                />
+              </div>
+
               {/* categoria — define o card de destino da missão */}
               <div>
                 <label className="mb-1.5 block text-sm text-muted">Categoria (card de destino)</label>
@@ -135,7 +151,7 @@ export function NewMissionModal({ open, onClose, onCreate, initialCategory }: Ne
               {/* turno */}
               <div>
                 <label className="mb-1.5 block text-sm text-muted">Turno</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-wrap gap-2">
                   {SHIFTS.map((s) => {
                     const { icon: Icon } = shiftMeta[s];
                     const active = shift === s;
@@ -144,13 +160,13 @@ export function NewMissionModal({ open, onClose, onCreate, initialCategory }: Ne
                         key={s}
                         onClick={() => setShift(s)}
                         className={cn(
-                          "flex flex-col items-center gap-1 rounded-xl border py-2.5 text-xs font-medium transition-all",
+                          "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
                           active
                             ? "border-brand/50 bg-brand/15 text-brand-light"
                             : "border-white/10 bg-white/5 text-muted hover:text-soft",
                         )}
                       >
-                        <Icon size={16} />
+                        <Icon size={13} />
                         {s}
                       </button>
                     );
@@ -161,32 +177,22 @@ export function NewMissionModal({ open, onClose, onCreate, initialCategory }: Ne
               {/* dificuldade */}
               <div>
                 <label className="mb-1.5 block text-sm text-muted">Dificuldade</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-wrap gap-2">
                   {DIFFICULTIES.map((d) => (
                     <button
                       key={d}
                       onClick={() => setDifficulty(d)}
                       className={cn(
-                        "flex flex-col items-center gap-1 rounded-xl border py-2.5 text-xs font-medium transition-all",
+                        "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
                         difficulty === d
                           ? "border-brand/50 bg-brand/15 text-brand-light"
                           : "border-white/10 bg-white/5 text-muted hover:text-soft",
                       )}
                     >
                       {d}
-                      <span className="inline-flex items-center gap-1 text-[11px] text-muted">
-                        <Zap size={10} /> {XP_BY_DIFFICULTY[d]} XP
-                      </span>
                     </button>
                   ))}
                 </div>
-              </div>
-
-              <div className="flex items-center justify-between rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
-                <span className="text-sm text-muted">Recompensa</span>
-                <span className="inline-flex items-center gap-1.5 font-display font-semibold text-brand-light">
-                  <Zap size={15} /> +{xp} XP
-                </span>
               </div>
             </div>
 

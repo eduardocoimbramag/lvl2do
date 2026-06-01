@@ -4,6 +4,11 @@ import { Mission, XP_BY_DIFFICULTY } from "./types";
  * Mock de missões — usado em /dashboard e /missions.
  * Sem persistência: alterações de status são apenas locais (useState).
  * FUTURO: substituir por dados vindos do banco (ex.: Prisma/Supabase).
+ *
+ * O campo `schedule` define quando a missão aparece:
+ * - { type: "today" }     → nas colunas do dia atual.
+ * - { type: "weekly" }    → recorre nos dias da semana indicados.
+ * - { type: "dates" }     → ocorre em datas específicas (ISO "YYYY-MM-DD").
  */
 export const mockMissions: Mission[] = [
   {
@@ -15,6 +20,7 @@ export const mockMissions: Mission[] = [
     shift: "Manhã",
     status: "done",
     xp: XP_BY_DIFFICULTY["Média"],
+    schedule: { type: "today" },
   },
   {
     id: "m2",
@@ -25,6 +31,7 @@ export const mockMissions: Mission[] = [
     shift: "Tarde",
     status: "done",
     xp: XP_BY_DIFFICULTY["Fácil"],
+    schedule: { type: "today" },
   },
   {
     id: "m3",
@@ -35,6 +42,8 @@ export const mockMissions: Mission[] = [
     shift: "Manhã",
     status: "pending",
     xp: XP_BY_DIFFICULTY["Difícil"],
+    // recorrente: segunda, quarta e sexta
+    schedule: { type: "weekly", weekdays: [1, 3, 5] },
   },
   {
     id: "m4",
@@ -44,6 +53,7 @@ export const mockMissions: Mission[] = [
     shift: "Noite",
     status: "done",
     xp: XP_BY_DIFFICULTY["Média"],
+    schedule: { type: "today" },
   },
   {
     id: "m5",
@@ -53,6 +63,8 @@ export const mockMissions: Mission[] = [
     shift: "Noite",
     status: "done",
     xp: XP_BY_DIFFICULTY["Fácil"],
+    // recorrente: todos os dias úteis
+    schedule: { type: "weekly", weekdays: [1, 2, 3, 4, 5] },
   },
   {
     id: "m6",
@@ -63,6 +75,7 @@ export const mockMissions: Mission[] = [
     shift: "Tarde",
     status: "pending",
     xp: XP_BY_DIFFICULTY["Difícil"],
+    schedule: { type: "today" },
   },
   {
     id: "m7",
@@ -72,6 +85,8 @@ export const mockMissions: Mission[] = [
     shift: "Tarde",
     status: "pending",
     xp: XP_BY_DIFFICULTY["Fácil"],
+    // recorrente: todos os dias da semana
+    schedule: { type: "weekly", weekdays: [0, 1, 2, 3, 4, 5, 6] },
   },
   {
     id: "m8",
@@ -81,6 +96,7 @@ export const mockMissions: Mission[] = [
     shift: "Noite",
     status: "pending",
     xp: XP_BY_DIFFICULTY["Média"],
+    schedule: { type: "today" },
   },
   {
     id: "m9",
@@ -90,5 +106,7 @@ export const mockMissions: Mission[] = [
     shift: "Manhã",
     status: "pending",
     xp: XP_BY_DIFFICULTY["Fácil"],
+    // recorrente: todo domingo
+    schedule: { type: "weekly", weekdays: [0] },
   },
 ];

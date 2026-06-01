@@ -6,6 +6,7 @@ import { Plus, Zap, ClipboardList } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { MissionCard } from "@/components/MissionCard";
 import { NewMissionModal } from "@/components/NewMissionModal";
+import { FutureMissions } from "@/components/FutureMissions";
 import { Button } from "@/components/Button";
 import { categoryMeta } from "@/components/CategoryBadge";
 import { useMissions } from "@/hooks/useMissions";
@@ -64,6 +65,9 @@ export default function MissionsPage() {
         ))}
       </div>
 
+      {/* aba expansiva de missões agendadas para outros dias */}
+      <FutureMissions />
+
       <NewMissionModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -94,31 +98,22 @@ function CategoryColumn({
   return (
     <section className="card-surface flex flex-col gap-4 p-4">
       {/* cabeçalho do card */}
-      <header className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <span
-            className={cn(
-              "inline-flex h-9 w-9 items-center justify-center rounded-xl border",
-              classes,
-            )}
-          >
-            <Icon size={18} />
-          </span>
-          <div>
-            <h2 className="font-display text-base font-semibold text-soft">{category}</h2>
-            <p className="text-xs text-muted">
-              {missions.length} {missions.length === 1 ? "missão" : "missões"}
-              {missions.length > 0 && ` · ${done} concluída${done === 1 ? "" : "s"}`}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={onAdd}
-          aria-label={`Adicionar missão em ${category}`}
-          className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-muted transition-colors hover:border-brand/40 hover:text-brand-light"
+      <header className="flex items-center gap-2.5">
+        <span
+          className={cn(
+            "inline-flex h-9 w-9 items-center justify-center rounded-xl border",
+            classes,
+          )}
         >
-          <Plus size={16} />
-        </button>
+          <Icon size={18} />
+        </span>
+        <div>
+          <h2 className="font-display text-base font-semibold text-soft">{category}</h2>
+          <p className="text-xs text-muted">
+            {missions.length} {missions.length === 1 ? "missão" : "missões"}
+            {missions.length > 0 && ` · ${done} concluída${done === 1 ? "" : "s"}`}
+          </p>
+        </div>
       </header>
 
       {/* lista de missões da categoria */}
