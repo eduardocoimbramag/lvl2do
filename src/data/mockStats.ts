@@ -42,12 +42,10 @@ export const xpPerWeek: { week: string; xp: number }[] = [
 
 /** Conclusão por categoria (%) — barras / radar (/progress, /dashboard). */
 export const categoryProgress: { category: Category; completion: number }[] = [
-  { category: "Estudos", completion: 82 },
-  { category: "Carreira", completion: 70 },
-  { category: "Finanças", completion: 64 },
+  { category: "Profissional", completion: 78 },
   { category: "Pessoal", completion: 58 },
   { category: "Saúde", completion: 30 },
 ];
 
-export const strongestArea = categoryProgress[0]; // Estudos — 82%
+export const strongestArea = categoryProgress[0]; // Profissional — 78%
 export const weakestArea = categoryProgress[categoryProgress.length - 1]; // Saúde — 30%

@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Zap } from "lucide-react";
 import {
   CATEGORIES,
   DIFFICULTIES,
+  SHIFTS,
   XP_BY_DIFFICULTY,
   type Category,
   type Difficulty,
+  type Shift,
   type Mission,
 } from "@/data/types";
+import { shiftMeta } from "./CategoryBadge";
 import { Button } from "./Button";
 import { cn } from "@/lib/utils";
 
@@ -19,32 +22,42 @@ interface NewMissionModalProps {
   onClose: () => void;
   /** cria a missão apenas em memória (sem salvar no banco) */
   onCreate: (mission: Mission) => void;
+  /** categoria (card de destino) pré-selecionada ao abrir o modal */
+  initialCategory?: Category;
 }
 
 /**
  * Modal visual de criação de missão.
  * IMPORTANTE: não salva dados no banco — apenas adiciona à lista local.
  */
-export function NewMissionModal({ open, onClose, onCreate }: NewMissionModalProps) {
+export function NewMissionModal({ open, onClose, onCreate, initialCategory }: NewMissionModalProps) {
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState<Category>("Carreira");
+  const [category, setCategory] = useState<Category>(initialCategory ?? "Profissional");
   const [difficulty, setDifficulty] = useState<Difficulty>("Fácil");
+  const [shift, setShift] = useState<Shift>("Manhã");
+
+  // Sincroniza o card de destino quando o modal é aberto a partir de uma coluna.
+  useEffect(() => {
+    if (open && initialCategory) setCategory(initialCategory);
+  }, [open, initialCategory]);
 
   const xp = XP_BY_DIFFICULTY[difficulty];
 
   function handleSubmit() {
     if (!title.trim()) return;
     onCreate({
-      id: `local-${title}-${xp}-${category}`,
+      id: `local-${title}-${xp}-${category}-${shift}`,
       title: title.trim(),
       category,
       difficulty,
+      shift,
       status: "pending",
       xp,
     });
     setTitle("");
-    setCategory("Carreira");
+    setCategory(initialCategory ?? "Profissional");
     setDifficulty("Fácil");
+    setShift("Manhã");
     onClose();
   }
 
@@ -98,9 +111,9 @@ export function NewMissionModal({ open, onClose, onCreate }: NewMissionModalProp
                 />
               </div>
 
-              {/* categoria */}
+              {/* categoria — define o card de destino da missão */}
               <div>
-                <label className="mb-1.5 block text-sm text-muted">Categoria</label>
+                <label className="mb-1.5 block text-sm text-muted">Categoria (card de destino)</label>
                 <div className="flex flex-wrap gap-2">
                   {CATEGORIES.map((c) => (
                     <button
@@ -116,6 +129,32 @@ export function NewMissionModal({ open, onClose, onCreate }: NewMissionModalProp
                       {c}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* turno */}
+              <div>
+                <label className="mb-1.5 block text-sm text-muted">Turno</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {SHIFTS.map((s) => {
+                    const { icon: Icon } = shiftMeta[s];
+                    const active = shift === s;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setShift(s)}
+                        className={cn(
+                          "flex flex-col items-center gap-1 rounded-xl border py-2.5 text-xs font-medium transition-all",
+                          active
+                            ? "border-brand/50 bg-brand/15 text-brand-light"
+                            : "border-white/10 bg-white/5 text-muted hover:text-soft",
+                        )}
+                      >
+                        <Icon size={16} />
+                        {s}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

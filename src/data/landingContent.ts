@@ -46,7 +46,7 @@ export const features: ContentCard[] = [
   {
     icon: Layers,
     title: "Missões por categoria",
-    description: "Organize por Carreira, Saúde, Estudos, Finanças e Pessoal.",
+    description: "Organize por Profissional, Pessoal e Saúde.",
   },
   {
     icon: Zap,
