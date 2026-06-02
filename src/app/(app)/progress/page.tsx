@@ -8,6 +8,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { AnimatedGrid } from "@/components/Section";
 import { XpAreaChart } from "@/components/charts/XpAreaChart";
+import { useAppStats } from "@/hooks/AppStateProvider";
 import {
   totals,
   categoryProgress,
@@ -16,6 +17,8 @@ import {
 } from "@/data/mockStats";
 
 export default function ProgressPage() {
+  const { stats } = useAppStats();
+
   return (
     <>
       <PageHeader
@@ -25,7 +28,7 @@ export default function ProgressPage() {
 
       {/* stats principais */}
       <AnimatedGrid className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="XP total" value={totals.totalXp.toLocaleString("pt-BR")} icon={Zap} />
+        <StatCard label="XP total" value={stats.totalXp.toLocaleString("pt-BR")} icon={Zap} />
         <StatCard label="Missões concluídas" value={totals.missionsCompleted} icon={CheckCircle2} />
         <StatCard
           label="Conclusão semanal"

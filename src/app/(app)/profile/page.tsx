@@ -8,9 +8,12 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { AnimatedGrid } from "@/components/Section";
 import { Button } from "@/components/Button";
+import { useAppStats } from "@/hooks/AppStateProvider";
 import { userProfile, totals, categoryProgress } from "@/data/mockStats";
 
 export default function ProfilePage() {
+  const { stats, progress } = useAppStats();
+
   return (
     <>
       <PageHeader title="Perfil" subtitle="Suas estatísticas e conquistas." />
@@ -30,7 +33,7 @@ export default function ProfilePage() {
           <div className="flex-1">
             <h2 className="font-display text-2xl font-bold text-soft">{userProfile.name}</h2>
             <p className="mt-1 text-sm text-brand-light">
-              Nível {userProfile.level} — {userProfile.title}
+              Nível {progress.level} — {userProfile.title}
             </p>
             <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted">
               <Calendar size={13} /> Membro desde {userProfile.joinedAt}
@@ -40,10 +43,10 @@ export default function ProfilePage() {
               <div className="mb-1.5 flex items-center justify-between text-sm">
                 <span className="text-muted">Progresso de nível</span>
                 <span className="text-soft">
-                  {userProfile.xpCurrent} / {userProfile.xpToNext} XP
+                  {progress.xpIntoLevel} / {progress.xpForNextLevel} XP
                 </span>
               </div>
-              <ProgressBar value={userProfile.xpCurrent} max={userProfile.xpToNext} />
+              <ProgressBar value={progress.xpIntoLevel} max={progress.xpForNextLevel} />
             </div>
           </div>
 
@@ -56,7 +59,7 @@ export default function ProfilePage() {
 
       {/* estatísticas */}
       <AnimatedGrid className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="XP total" value={totals.totalXp.toLocaleString("pt-BR")} icon={Zap} />
+        <StatCard label="XP total" value={stats.totalXp.toLocaleString("pt-BR")} icon={Zap} />
         <StatCard label="Missões concluídas" value={totals.missionsCompleted} icon={CheckCircle2} />
         <StatCard label="Streak atual" value={`${userProfile.streak} dias`} icon={Flame} />
         <StatCard

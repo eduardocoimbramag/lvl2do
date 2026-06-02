@@ -8,6 +8,26 @@ export type Shift = "Manhã" | "Tarde" | "Noite";
 
 export type MissionStatus = "pending" | "done" | "failed";
 
+/* -------------------------------------------------------------------------- */
+/*  Tickets (suporte)                                                          */
+/* -------------------------------------------------------------------------- */
+
+export type TicketType = "Problema" | "Sugestão" | "Dúvida";
+
+export type TicketStatus = "Aberto" | "Resolvido";
+
+export interface Ticket {
+  id: string;
+  type: TicketType;
+  title: string;
+  description: string;
+  /** data de criação (ISO "YYYY-MM-DD"). */
+  createdAt: string;
+  status: TicketStatus;
+}
+
+export const TICKET_TYPES: TicketType[] = ["Problema", "Sugestão", "Dúvida"];
+
 /** Dia da semana: 0 = Domingo … 6 = Sábado (compatível com Date.getDay()). */
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 

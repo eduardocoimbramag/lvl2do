@@ -3,6 +3,7 @@ import {
   Target,
   TrendingUp,
   User,
+  LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ export const appNav: NavItem[] = [
   { label: "Missões", href: "/missions", icon: Target },
   { label: "Progresso", href: "/progress", icon: TrendingUp },
   { label: "Perfil", href: "/profile", icon: User },
+  { label: "Suporte", href: "/support", icon: LifeBuoy },
 ];
 
 /** Links de âncora da landing page. */

@@ -10,11 +10,12 @@ import { FutureMissions } from "@/components/FutureMissions";
 import { PreconfiguredMissions } from "@/components/PreconfiguredMissions";
 import { Button } from "@/components/Button";
 import { categoryMeta } from "@/components/CategoryBadge";
-import { useMissions } from "@/hooks/useMissions";
+import { useAppMissions } from "@/hooks/AppStateProvider";
 import { CATEGORIES, type Category } from "@/data/types";
 import { cn } from "@/lib/utils";
 
 export default function MissionsPage() {
+  // estado global compartilhado — concluir missão aqui credita XP corretamente
   const {
     missions,
     allMissions,
@@ -24,7 +25,7 @@ export default function MissionsPage() {
     updateSchedule,
     removeMission,
     stats,
-  } = useMissions();
+  } = useAppMissions();
   const [modalOpen, setModalOpen] = useState(false);
   // categoria pré-selecionada ao abrir o modal a partir de uma coluna
   const [targetCategory, setTargetCategory] = useState<Category | undefined>(undefined);
@@ -104,7 +105,7 @@ function CategoryColumn({
   onAdd,
 }: {
   category: Category;
-  missions: ReturnType<typeof useMissions>["missions"];
+  missions: ReturnType<typeof useAppMissions>["missions"];
   onToggle: (id: string) => void;
   onFail: (id: string) => void;
   onAdd: () => void;

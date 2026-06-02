@@ -109,4 +109,28 @@ export const mockMissions: Mission[] = [
     // recorrente: todo domingo
     schedule: { type: "weekly", weekdays: [0] },
   },
+  {
+    id: "m10",
+    title: "Consulta médica",
+    description: "Check-up semestral.",
+    category: "Saúde",
+    difficulty: "Fácil",
+    shift: "Manhã",
+    status: "pending",
+    xp: XP_BY_DIFFICULTY["Fácil"],
+    // datas específicas (futuras)
+    schedule: { type: "dates", dates: ["2026-06-15", "2026-06-29"] },
+  },
+  {
+    id: "m11",
+    title: "Entregar relatório do projeto",
+    description: "Fechar a sprint e enviar ao cliente.",
+    category: "Profissional",
+    difficulty: "Difícil",
+    shift: "Tarde",
+    status: "pending",
+    xp: XP_BY_DIFFICULTY["Difícil"],
+    // data específica única
+    schedule: { type: "dates", dates: ["2026-06-20"] },
+  },
 ];

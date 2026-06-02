@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { mockMissions } from "@/data/mockMissions";
 import {
   SHIFTS,
@@ -41,13 +41,38 @@ export function occursOn(mission: Mission, date: Date): boolean {
   return isScheduledOn(mission.schedule, date);
 }
 
+interface UseMissionsOptions {
+  /**
+   * Disparado na transição pendente/falhada → concluída de uma missão, com o
+   * XP base da missão. Deve retornar o XP EFETIVAMENTE creditado (após o
+   * limite diário), para que a reversão devolva o valor exato. A lógica de XP
+   * vive fora deste hook (ver useUserStats).
+   */
+  onMissionCompleted?: (missionXp: number) => number;
+  /**
+   * Disparado ao DESFAZER uma conclusão (concluída → pendente), com o XP que
+   * havia sido creditado naquela missão, para ser devolvido.
+   */
+  onMissionReverted?: (creditedXp: number) => void;
+}
+
 /**
  * Hook de estado local das missões (SEM persistência).
  * Concluir/criar missões altera apenas o estado em memória.
  * FUTURO: substituir por dados do banco (fetch/mutations).
  */
-export function useMissions() {
+export function useMissions(options: UseMissionsOptions = {}) {
   const [missions, setMissions] = useState<Mission[]>(mockMissions);
+  // espelho síncrono das missões (para decidir efeitos de XP fora do updater)
+  const missionsRef = useRef<Mission[]>(missions);
+  missionsRef.current = missions;
+  // mantém os callbacks atuais sem recriar os handlers a cada render
+  const onCompletedRef = useRef(options.onMissionCompleted);
+  onCompletedRef.current = options.onMissionCompleted;
+  const onRevertedRef = useRef(options.onMissionReverted);
+  onRevertedRef.current = options.onMissionReverted;
+  // XP de fato creditado por missão (para devolver o valor exato ao desfazer)
+  const creditedByMission = useRef<Record<string, number>>({});
 
   /** Define o status, permitindo desfazer ao clicar de novo no mesmo botão. */
   const setStatus = useCallback((id: string, target: Exclude<MissionStatus, "pending">) => {
@@ -60,8 +85,40 @@ export function useMissions() {
     );
   }, []);
 
-  /** Conclui a missão (ganha XP). Alterna concluída/pendente. */
-  const toggle = useCallback((id: string) => setStatus(id, "done"), [setStatus]);
+  /**
+   * Alterna concluída/pendente.
+   * - pendente/falhada → concluída: credita XP e guarda o valor creditado.
+   * - concluída → pendente (desfazer): devolve exatamente o XP creditado.
+   *
+   * A decisão (e o efeito de XP) usa o espelho síncrono `missionsRef`, fora do
+   * updater do setState, para não duplicar sob React Strict Mode.
+   */
+  const toggle = useCallback((id: string) => {
+    const target = missionsRef.current.find((m) => m.id === id);
+    if (!target) return;
+    const isUndo = target.status === "done";
+
+    // aplica a mudança de status
+    setMissions((prev) =>
+      prev.map((m) =>
+        m.id === id
+          ? { ...m, status: m.status === "done" ? "pending" : "done" }
+          : m,
+      ),
+    );
+
+    // efeitos de XP (uma única vez, fora do updater)
+    if (!isUndo) {
+      // pendente/falhada → concluída: credita e registra o XP concedido
+      const credited = onCompletedRef.current?.(target.xp) ?? 0;
+      creditedByMission.current[id] = credited;
+    } else {
+      // concluída → pendente: devolve exatamente o que foi creditado
+      const credited = creditedByMission.current[id] ?? 0;
+      delete creditedByMission.current[id];
+      if (credited > 0) onRevertedRef.current?.(credited);
+    }
+  }, []);
 
   /** Marca como não concluída (sem XP). Alterna falhada/pendente. */
   const fail = useCallback((id: string) => setStatus(id, "failed"), [setStatus]);

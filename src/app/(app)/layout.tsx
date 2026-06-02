@@ -10,20 +10,28 @@ import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { Sidebar } from "@/components/Sidebar";
 import { BottomNav } from "@/components/BottomNav";
 import { AppTopbar } from "@/components/AppTopbar";
+import { GlobalXpToast } from "@/components/GlobalXpToast";
+import { AppStateProvider } from "@/hooks/AppStateProvider";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen">
-      <AnimatedBackground />
-      <Sidebar />
-      <AppTopbar />
+    // Estado global (missões + XP) compartilhado por todas as páginas internas.
+    <AppStateProvider>
+      <div className="min-h-screen">
+        <AnimatedBackground />
+        <Sidebar />
+        <AppTopbar />
 
-      {/* conteúdo deslocado pela sidebar no desktop, com espaço pra bottom nav no mobile */}
-      <div className="md:pl-64 lg:pl-72">
-        <main className="container-page py-6 pb-24 sm:py-8 md:pb-10">{children}</main>
+        {/* conteúdo deslocado pela sidebar no desktop, com espaço pra bottom nav no mobile */}
+        <div className="md:pl-64 lg:pl-72">
+          <main className="container-page py-6 pb-24 sm:py-8 md:pb-10">{children}</main>
+        </div>
+
+        <BottomNav />
+
+        {/* feedback de XP (ganho/perda) visível em qualquer página */}
+        <GlobalXpToast />
       </div>
-
-      <BottomNav />
-    </div>
+    </AppStateProvider>
   );
 }
