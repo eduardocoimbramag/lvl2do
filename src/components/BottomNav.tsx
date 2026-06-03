@@ -40,7 +40,7 @@ export function BottomNav() {
                   active ? "text-soft" : "text-muted",
                 )}
               >
-                {item.label}
+                {item.shortLabel ?? item.label}
               </span>
             </Link>
           );

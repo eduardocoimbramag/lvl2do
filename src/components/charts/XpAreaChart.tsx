@@ -8,14 +8,19 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { xpPerWeek } from "@/data/mockStats";
+import type { XpPoint } from "@/data/metricsData";
 
-/** Gráfico de XP por semana (Recharts) — usado em /progress. */
-export function XpAreaChart() {
+interface XpAreaChartProps {
+  /** série de XP a exibir (label no eixo X, xp no eixo Y). */
+  data: XpPoint[];
+}
+
+/** Gráfico de XP ao longo do tempo (Recharts) — usado em /progress. */
+export function XpAreaChart({ data }: XpAreaChartProps) {
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={xpPerWeek} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
           <defs>
             <linearGradient id="xpFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#A855F7" stopOpacity={0.4} />
@@ -23,7 +28,7 @@ export function XpAreaChart() {
             </linearGradient>
           </defs>
           <XAxis
-            dataKey="week"
+            dataKey="label"
             stroke="#94A3B8"
             fontSize={12}
             tickLine={false}
