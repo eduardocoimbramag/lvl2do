@@ -1,13 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Plus, Target, TrendingUp, Trophy, ArrowRight, ArrowDownRight, Moon } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { PeriodToggle, type Period } from "@/components/PeriodToggle";
 import { LevelCard } from "@/components/LevelCard";
-import { StreakCard } from "@/components/StreakCard";
+import { CompletionCard } from "@/components/CompletionCard";
 import { StatCard } from "@/components/StatCard";
 import { ProgressBar } from "@/components/ProgressBar";
 import { DailyXpCard } from "@/components/DailyXpCard";
@@ -21,7 +20,6 @@ import { CATEGORIES } from "@/data/types";
 import { userProfile } from "@/data/mockStats";
 
 export default function DashboardPage() {
-  const [period, setPeriod] = useState<Period>("Hoje");
   // estado global compartilhado — concluir missão credita XP em tempo real
   const { stats, progress, daily, simulateInactiveDays } = useAppStats();
   const { missions, toggle } = useAppMissions();
@@ -36,41 +34,50 @@ export default function DashboardPage() {
     [doneToday, missions.length],
   );
 
-  // conclusão por categoria (hoje): define área mais forte e mais fraca
-  const areas = useMemo(() => {
+  // conclusão por categoria (hoje) + total — para o card "Conclusão do dia"
+  const completion = useMemo(() => {
     const perCategory = CATEGORIES.map((category) => {
       const inCat = missions.filter((m) => m.category === category);
       const done = inCat.filter((m) => m.status === "done").length;
-      const completion = inCat.length === 0 ? 0 : Math.round((done / inCat.length) * 100);
-      return { category, completion, total: inCat.length };
+      const value = inCat.length === 0 ? 0 : Math.round((done / inCat.length) * 100);
+      return { category, value, completion: value };
     });
+    const total = missions.length === 0 ? 0 : Math.round((doneToday / missions.length) * 100);
+
+    // linhas do card, na ordem pedida: Profissional, Pessoal, Saúde, Total
+    const rows = [
+      ...CATEGORIES.map((category) => ({
+        label: category,
+        value: perCategory.find((c) => c.category === category)?.value ?? 0,
+      })),
+      { label: "Total", value: total },
+    ];
+
     // mais forte = maior conclusão; mais fraca = menor conclusão
     const sorted = [...perCategory].sort((a, b) => b.completion - a.completion);
-    return { strongest: sorted[0], weakest: sorted[sorted.length - 1] };
-  }, [missions]);
+    return { rows, strongest: sorted[0], weakest: sorted[sorted.length - 1] };
+  }, [missions, doneToday]);
 
-  const strongestArea = areas.strongest;
-  const weakestArea = areas.weakest;
+  const strongestArea = completion.strongest;
+  const weakestArea = completion.weakest;
 
   return (
     <>
       <PageHeader
         title={`Bem-vindo de volta, ${userProfile.name}`}
         subtitle="Aqui está o resumo da sua evolução."
-        action={<PeriodToggle value={period} onChange={setPeriod} />}
       />
 
-      {/* linha 1: nível + streak + stats rápidos */}
+      {/* linha 1: nível + conclusão do dia */}
       <div className="grid gap-5 lg:grid-cols-3">
         <LevelCard
           level={progress.level}
-          title={userProfile.title}
           xpCurrent={progress.xpIntoLevel}
           xpToNext={progress.xpForNextLevel}
           characterClass={characterClass}
           className="lg:col-span-2"
         />
-        <StreakCard days={userProfile.streak} />
+        <CompletionCard rows={completion.rows} />
       </div>
 
       {/* linha 2: stat cards */}

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
-import { CHARACTER_CLASSES, type CharacterClass } from "@/data/characterClasses";
+import { CHARACTER_CLASSES, getClassShowcaseImage, type CharacterClass } from "@/data/characterClasses";
 import { cn } from "@/lib/utils";
 
 interface ClassSelectGridProps {
@@ -43,9 +43,9 @@ export function ClassSelectGrid({ selected, onSelect, disabled, className }: Cla
               disabled && "cursor-not-allowed opacity-60",
             )}
           >
-            {/* arte do personagem preenchendo o card */}
+            {/* arte do personagem preenchendo o card (arte final, lv100) */}
             <Image
-              src={c.image}
+              src={getClassShowcaseImage(c.id)}
               alt={`Classe ${c.id}`}
               fill
               sizes="(max-width: 640px) 45vw, 30vw"

@@ -1,13 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { ProgressBar } from "./ProgressBar";
 import { XpBolt } from "./AnimatedSvgIcon";
+import { getCharacterImage, isCharacterClass } from "@/data/characterClasses";
 import { cn } from "@/lib/utils";
 
 interface LevelCardProps {
   level: number;
-  title: string;
   xpCurrent: number;
   xpToNext: number;
   /** classe de personagem escolhida (ex.: "Arqueira"); opcional. */
@@ -15,48 +16,76 @@ interface LevelCardProps {
   className?: string;
 }
 
-/** Card de nível atual com barra de XP animada. */
-export function LevelCard({ level, title, xpCurrent, xpToNext, characterClass, className }: LevelCardProps) {
+/**
+ * Card de nível atual: moldura com a arte do personagem à esquerda e o
+ * conteúdo (nível, classe e barra de XP) à direita.
+ */
+export function LevelCard({ level, xpCurrent, xpToNext, characterClass, className }: LevelCardProps) {
+  // arte da classe selecionada, evoluindo conforme o nível (fallback: número)
+  const artSrc = isCharacterClass(characterClass)
+    ? getCharacterImage(characterClass, level)
+    : null;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className={cn("card-surface relative overflow-hidden p-6", className)}
+      className={cn(
+        "card-surface relative flex h-full items-center gap-5 overflow-hidden p-5 sm:gap-6 sm:p-6",
+        className,
+      )}
     >
       {/* glow decorativo */}
       <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-brand/20 blur-3xl" />
 
-      <div className="relative flex items-center gap-4">
-        <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-brand-gradient text-white shadow-glow">
-          <span className="font-display text-2xl font-bold">{level}</span>
-        </div>
-        <div className="min-w-0">
+      {/* moldura com a arte do personagem */}
+      <div className="relative aspect-square w-36 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-ink shadow-glow sm:w-44">
+        {artSrc ? (
+          <Image
+            src={artSrc}
+            alt={`Classe ${characterClass}`}
+            fill
+            sizes="(max-width: 640px) 9rem, 11rem"
+            className="object-cover"
+          />
+        ) : (
+          // sem classe ainda → mostra o nível na moldura
+          <div className="flex h-full w-full items-center justify-center bg-brand-gradient text-white">
+            <span className="font-display text-5xl font-bold">{level}</span>
+          </div>
+        )}
+      </div>
+
+      {/* conteúdo à direita — distribuído na altura do card */}
+      <div className="relative flex min-w-0 flex-1 flex-col justify-center gap-5">
+        <div>
           <p className="text-xs uppercase tracking-widest text-muted">Nível atual</p>
-          <h3 className="truncate font-display text-lg font-semibold text-soft">
-            Nível {level} — {title}
+          <h3 className="truncate font-display text-xl font-semibold text-soft sm:text-2xl">
+            Nível {level}
           </h3>
           {characterClass && (
-            <p className="mt-0.5 truncate text-sm text-brand-light">
+            <p className="mt-1 truncate text-sm text-brand-light sm:text-base">
               Classe: <span className="font-medium">{characterClass}</span>
             </p>
           )}
         </div>
-      </div>
 
-      <div className="relative mt-6">
-        <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="inline-flex items-center gap-1.5 text-muted">
-            <XpBolt size={16} /> XP
-          </span>
-          <span className="font-medium text-soft">
-            {xpCurrent} / {xpToNext} XP
-          </span>
+        {/* barra de XP */}
+        <div>
+          <div className="mb-1.5 flex items-center justify-between text-xs sm:text-sm">
+            <span className="inline-flex items-center gap-1.5 text-muted">
+              <XpBolt size={15} /> XP
+            </span>
+            <span className="font-medium text-soft">
+              {xpCurrent} / {xpToNext} XP
+            </span>
+          </div>
+          <ProgressBar value={xpCurrent} max={xpToNext} />
+          <p className="mt-1.5 text-xs text-muted">
+            Faltam <span className="text-brand-light">{xpToNext - xpCurrent} XP</span> para o próximo nível.
+          </p>
         </div>
-        <ProgressBar value={xpCurrent} max={xpToNext} />
-        <p className="mt-2 text-xs text-muted">
-          Faltam <span className="text-brand-light">{xpToNext - xpCurrent} XP</span> para o próximo nível.
-        </p>
       </div>
     </motion.div>
   );
