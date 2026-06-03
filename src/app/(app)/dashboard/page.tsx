@@ -16,6 +16,7 @@ import { Button, ButtonLink } from "@/components/Button";
 import { AnimatedGrid } from "@/components/Section";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { useAppStats, useAppMissions } from "@/hooks/AppStateProvider";
+import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { CATEGORIES } from "@/data/types";
 import { userProfile } from "@/data/mockStats";
 
@@ -24,6 +25,7 @@ export default function DashboardPage() {
   // estado global compartilhado — concluir missão credita XP em tempo real
   const { stats, progress, daily, simulateInactiveDays } = useAppStats();
   const { missions, toggle } = useAppMissions();
+  const { characterClass } = useCharacterClass();
 
   const todayMissions = missions.slice(0, 5);
   const doneToday = missions.filter((m) => m.status === "done").length;
@@ -65,6 +67,7 @@ export default function DashboardPage() {
           title={userProfile.title}
           xpCurrent={progress.xpIntoLevel}
           xpToNext={progress.xpForNextLevel}
+          characterClass={characterClass}
           className="lg:col-span-2"
         />
         <StreakCard days={userProfile.streak} />

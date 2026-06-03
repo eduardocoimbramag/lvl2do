@@ -10,11 +10,13 @@ interface LevelCardProps {
   title: string;
   xpCurrent: number;
   xpToNext: number;
+  /** classe de personagem escolhida (ex.: "Arqueira"); opcional. */
+  characterClass?: string | null;
   className?: string;
 }
 
 /** Card de nível atual com barra de XP animada. */
-export function LevelCard({ level, title, xpCurrent, xpToNext, className }: LevelCardProps) {
+export function LevelCard({ level, title, xpCurrent, xpToNext, characterClass, className }: LevelCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -34,6 +36,11 @@ export function LevelCard({ level, title, xpCurrent, xpToNext, className }: Leve
           <h3 className="truncate font-display text-lg font-semibold text-soft">
             Nível {level} — {title}
           </h3>
+          {characterClass && (
+            <p className="mt-0.5 truncate text-sm text-brand-light">
+              Classe: <span className="font-medium">{characterClass}</span>
+            </p>
+          )}
         </div>
       </div>
 

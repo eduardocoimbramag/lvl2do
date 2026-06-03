@@ -1,18 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Zap, CheckCircle2, Flame, Trophy, Calendar } from "lucide-react";
+import { Zap, CheckCircle2, Flame, Trophy, Calendar, Repeat } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { ProgressBar } from "@/components/ProgressBar";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { AnimatedGrid } from "@/components/Section";
 import { Button } from "@/components/Button";
+import { ChangeClassModal } from "@/components/ChangeClassModal";
 import { useAppStats } from "@/hooks/AppStateProvider";
+import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { userProfile, totals, categoryProgress } from "@/data/mockStats";
 
 export default function ProfilePage() {
   const { stats, progress } = useAppStats();
+  const { characterClass } = useCharacterClass();
+  const [classModalOpen, setClassModalOpen] = useState(false);
 
   return (
     <>
@@ -35,6 +40,11 @@ export default function ProfilePage() {
             <p className="mt-1 text-sm text-brand-light">
               Nível {progress.level} — {userProfile.title}
             </p>
+            {characterClass && (
+              <p className="mt-0.5 text-sm text-soft">
+                Classe: <span className="font-medium text-brand-light">{characterClass}</span>
+              </p>
+            )}
             <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted">
               <Calendar size={13} /> Membro desde {userProfile.joinedAt}
             </p>
@@ -50,12 +60,24 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* FUTURO CLERK: substituir por <UserButton /> / gestão de conta */}
-          <Button variant="secondary" className="shrink-0">
-            Editar perfil
-          </Button>
+          {/* ações da conta */}
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto">
+            {/* FUTURO CLERK: substituir por <UserButton /> / gestão de conta */}
+            <Button variant="secondary" className="w-full sm:w-auto">
+              Editar perfil
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full sm:w-auto"
+              onClick={() => setClassModalOpen(true)}
+            >
+              <Repeat size={16} /> Trocar classe
+            </Button>
+          </div>
         </div>
       </motion.div>
+
+      <ChangeClassModal open={classModalOpen} onClose={() => setClassModalOpen(false)} />
 
       {/* estatísticas */}
       <AnimatedGrid className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
