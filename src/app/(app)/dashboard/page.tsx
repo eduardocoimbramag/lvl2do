@@ -3,17 +3,15 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Plus, Target, TrendingUp, Trophy, ArrowRight, ArrowDownRight, Moon } from "lucide-react";
+import { Plus, Target, ArrowRight, Quote, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LevelCard } from "@/components/LevelCard";
 import { CompletionCard } from "@/components/CompletionCard";
 import { StatCard } from "@/components/StatCard";
-import { ProgressBar } from "@/components/ProgressBar";
 import { DailyXpCard } from "@/components/DailyXpCard";
 import { MissionCard } from "@/components/MissionCard";
-import { Button, ButtonLink } from "@/components/Button";
+import { ButtonLink } from "@/components/Button";
 import { AnimatedGrid } from "@/components/Section";
-import { CategoryBadge } from "@/components/CategoryBadge";
 import { useAppStats, useAppMissions } from "@/hooks/AppStateProvider";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { CATEGORIES } from "@/data/types";
@@ -21,45 +19,28 @@ import { userProfile } from "@/data/mockStats";
 
 export default function DashboardPage() {
   // estado global compartilhado — concluir missão credita XP em tempo real
-  const { stats, progress, daily, simulateInactiveDays } = useAppStats();
+  const { progress, daily } = useAppStats();
   const { missions, toggle } = useAppMissions();
   const { characterClass } = useCharacterClass();
 
-  const todayMissions = missions.slice(0, 5);
+  // missões pendentes de hoje (para o bloco "Missões pendentes")
+  const pendingMissions = missions.filter((m) => m.status === "pending");
   const doneToday = missions.filter((m) => m.status === "done").length;
 
-  // progresso diário: % de missões de hoje concluídas
-  const dailyProgress = useMemo(
-    () => (missions.length === 0 ? 0 : Math.round((doneToday / missions.length) * 100)),
-    [doneToday, missions.length],
-  );
-
   // conclusão por categoria (hoje) + total — para o card "Conclusão do dia"
-  const completion = useMemo(() => {
-    const perCategory = CATEGORIES.map((category) => {
-      const inCat = missions.filter((m) => m.category === category);
-      const done = inCat.filter((m) => m.status === "done").length;
-      const value = inCat.length === 0 ? 0 : Math.round((done / inCat.length) * 100);
-      return { category, value, completion: value };
-    });
+  const completionRows = useMemo(() => {
     const total = missions.length === 0 ? 0 : Math.round((doneToday / missions.length) * 100);
-
-    // linhas do card, na ordem pedida: Profissional, Pessoal, Saúde, Total
-    const rows = [
-      ...CATEGORIES.map((category) => ({
-        label: category,
-        value: perCategory.find((c) => c.category === category)?.value ?? 0,
-      })),
+    // ordem pedida: Profissional, Pessoal, Saúde, Total
+    return [
+      ...CATEGORIES.map((category) => {
+        const inCat = missions.filter((m) => m.category === category);
+        const done = inCat.filter((m) => m.status === "done").length;
+        const value = inCat.length === 0 ? 0 : Math.round((done / inCat.length) * 100);
+        return { label: category, value };
+      }),
       { label: "Total", value: total },
     ];
-
-    // mais forte = maior conclusão; mais fraca = menor conclusão
-    const sorted = [...perCategory].sort((a, b) => b.completion - a.completion);
-    return { rows, strongest: sorted[0], weakest: sorted[sorted.length - 1] };
   }, [missions, doneToday]);
-
-  const strongestArea = completion.strongest;
-  const weakestArea = completion.weakest;
 
   return (
     <>
@@ -77,114 +58,70 @@ export default function DashboardPage() {
           characterClass={characterClass}
           className="lg:col-span-2"
         />
-        <CompletionCard rows={completion.rows} />
+        <CompletionCard rows={completionRows} />
       </div>
 
-      {/* linha 2: stat cards */}
-      <AnimatedGrid className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {/* linha 2: missões hoje (1/4) + XP diário (1/4) + frase do dia (2/4) */}
+      <div className="mt-5 grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Missões concluídas hoje"
           value={`${doneToday}/${missions.length}`}
           hint="Continue assim!"
           icon={Target}
+          className="h-full"
         />
-        <StatCard
-          label="XP total"
-          value={stats.totalXp.toLocaleString("pt-BR")}
-          hint={`Nível ${progress.level}`}
-          icon={TrendingUp}
-          tone="success"
-        />
-        <StatCard
-          label="XP até o próximo nível"
-          value={`${progress.xpForNextLevel - progress.xpIntoLevel}`}
-          hint="Continue evoluindo!"
-          icon={Trophy}
-        />
-      </AnimatedGrid>
 
-      {/* linha: XP diário (limite) + progresso diário */}
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <DailyXpCard
           used={daily.used}
           limit={daily.limit}
           nearLimit={daily.nearLimit}
           reachedLimit={daily.reachedLimit}
+          className="h-full"
         />
 
+        {/* frase do dia (placeholder fixo por enquanto) — ocupa 2/4 */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="card-surface p-6"
+          className="card-surface flex h-full flex-col p-6 sm:col-span-2"
         >
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-display font-semibold text-soft">Progresso diário</h3>
-            <span className="text-sm text-muted">
-              {doneToday}/{missions.length} missões · {dailyProgress}%
-            </span>
-          </div>
-          <ProgressBar value={dailyProgress} tone="success" />
+          <h3 className="inline-flex items-center gap-2 font-display font-semibold text-soft">
+            <Quote size={16} className="text-brand-light" /> Frase do dia
+          </h3>
+          <blockquote className="mt-3 flex flex-1 flex-col justify-center">
+            <p className="font-display text-sm italic leading-relaxed text-soft">
+              “Sem saber que era impossível, ele foi lá e fez!”
+            </p>
+            <footer className="mt-2 text-xs text-muted">— Autor desconhecido</footer>
+          </blockquote>
         </motion.div>
       </div>
 
-      {/* linha 3: missões do dia + áreas */}
-      <div className="mt-5 grid gap-5 lg:grid-cols-3">
-        {/* missões do dia */}
-        <div className="lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-display font-semibold text-soft">Missões do dia</h3>
-            <Link href="/missions" className="inline-flex items-center gap-1 text-sm text-brand-light hover:text-brand-vivid">
-              Ver todas <ArrowRight size={14} />
-            </Link>
-          </div>
-          <AnimatedGrid className="grid gap-4 sm:grid-cols-2">
-            {todayMissions.map((m) => (
+      {/* linha 3: missões pendentes (largura cheia, 3 colunas) */}
+      <div className="mt-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-display font-semibold text-soft">Missões pendentes</h3>
+          <Link href="/missions" className="inline-flex items-center gap-1 text-sm text-brand-light hover:text-brand-vivid">
+            Ver todas <ArrowRight size={14} />
+          </Link>
+        </div>
+
+        {pendingMissions.length > 0 ? (
+          <AnimatedGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {pendingMissions.map((m) => (
               <MissionCard key={m.id} mission={m} onToggle={toggle} />
             ))}
           </AnimatedGrid>
-        </div>
-
-        {/* áreas + ações */}
-        <div className="space-y-5">
-          <div className="card-glow p-5">
-            <p className="text-xs uppercase tracking-widest text-muted">Área mais forte</p>
-            <div className="mt-3 flex items-center justify-between">
-              <CategoryBadge category={strongestArea.category} />
-              <span className="font-display text-2xl font-bold text-success">
-                {strongestArea.completion}%
-              </span>
-            </div>
-            <ProgressBar value={strongestArea.completion} tone="success" className="mt-3" size="sm" />
-          </div>
-
-          <div className="card-glow p-5">
-            <p className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted">
-              <ArrowDownRight size={13} /> Área mais fraca
-            </p>
-            <div className="mt-3 flex items-center justify-between">
-              <CategoryBadge category={weakestArea.category} />
-              <span className="font-display text-2xl font-bold text-rose-300">
-                {weakestArea.completion}%
-              </span>
-            </div>
-            <ProgressBar value={weakestArea.completion} className="mt-3" size="sm" />
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <ButtonLink href="/missions" className="w-full">
-              <Plus size={18} /> Nova missão
+        ) : (
+          <div className="card-surface flex flex-col items-center gap-3 p-12 text-center">
+            <CheckCircle2 className="text-success" size={32} />
+            <p className="text-sm text-muted">Nenhuma missão pendente por hoje. Bom trabalho!</p>
+            <ButtonLink href="/missions" variant="secondary">
+              <Plus size={16} /> Nova missão
             </ButtonLink>
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => simulateInactiveDays(1)}
-              title="Aplica a perda de XP de 1 dia inativo (demonstração)"
-            >
-              <Moon size={16} /> Simular dia inativo
-            </Button>
           </div>
-        </div>
+        )}
       </div>
     </>
   );
