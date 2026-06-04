@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useUser } from "@clerk/nextjs";
 import { Plus, Target, ArrowRight, Quote, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LevelCard } from "@/components/LevelCard";
@@ -13,6 +14,8 @@ import { ButtonLink } from "@/components/Button";
 import { AnimatedGrid } from "@/components/Section";
 import { useAppStats, useAppMissions } from "@/hooks/AppStateProvider";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
+import { useCharacterSkin } from "@/hooks/useCharacterSkin";
+import { isCharacterClass } from "@/data/characterClasses";
 import { CATEGORIES } from "@/data/types";
 import { userProfile } from "@/data/mockStats";
 
@@ -21,6 +24,17 @@ export default function DashboardPage() {
   const { progress, daily } = useAppStats();
   const { missions, toggle } = useAppMissions();
   const { characterClass } = useCharacterClass();
+  const { resolveImage } = useCharacterSkin();
+  const { user } = useUser();
+
+  // nome completo (nome + sobrenome) do usuário, com fallbacks
+  const fullName =
+    user?.fullName || user?.firstName || user?.username || userProfile.name;
+
+  // arte do personagem respeitando a skin escolhida (auto/manual)
+  const characterArt = isCharacterClass(characterClass)
+    ? resolveImage(characterClass, progress.level)
+    : null;
 
   // missões pendentes de hoje (para o bloco "Missões pendentes")
   const pendingMissions = missions.filter((m) => m.status === "pending");
@@ -54,7 +68,9 @@ export default function DashboardPage() {
           level={progress.level}
           xpCurrent={progress.xpIntoLevel}
           xpToNext={progress.xpForNextLevel}
+          displayName={fullName}
           characterClass={characterClass}
+          artSrc={characterArt}
           className="lg:col-span-2"
         />
         <CompletionCard rows={completionRows} />
@@ -70,7 +86,7 @@ export default function DashboardPage() {
           className="card-surface flex h-full flex-col p-6"
         >
           <h3 className="inline-flex items-center gap-2 font-display font-semibold text-soft">
-            <Target size={16} className="text-brand-light" /> Missões concluídas hoje
+            <Target size={16} className="text-brand-light" /> Missões concluídas
           </h3>
           <div className="flex flex-1 items-center">
             <p className="font-display text-4xl font-bold text-soft">

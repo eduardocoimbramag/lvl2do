@@ -51,6 +51,15 @@ body {
   .container-page {
     @apply mx-auto w-full max-w-7xl px-5 sm:px-8;
   }
+
+  /* esconde a barra de rolagem (ex.: trilho do carrossel de skins) */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Custom scrollbar — keeps the premium dark feel */

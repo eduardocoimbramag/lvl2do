@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
-import { Zap, CheckCircle2, Flame, Trophy, Calendar, Repeat } from "lucide-react";
+import { Zap, CheckCircle2, Flame, Trophy, Calendar, Repeat, Shirt } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -10,14 +11,23 @@ import { CategoryBadge } from "@/components/CategoryBadge";
 import { AnimatedGrid } from "@/components/Section";
 import { Button } from "@/components/Button";
 import { ChangeClassModal } from "@/components/ChangeClassModal";
+import { ChangeOutfitModal } from "@/components/ChangeOutfitModal";
 import { useAppStats } from "@/hooks/AppStateProvider";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
+import { useCharacterSkin } from "@/hooks/useCharacterSkin";
+import { isCharacterClass } from "@/data/characterClasses";
 import { userProfile, totals, categoryProgress } from "@/data/mockStats";
 
 export default function ProfilePage() {
   const { stats, progress } = useAppStats();
   const { characterClass } = useCharacterClass();
+  const { resolveImage } = useCharacterSkin();
   const [classModalOpen, setClassModalOpen] = useState(false);
+  const [outfitModalOpen, setOutfitModalOpen] = useState(false);
+
+  // arte do personagem (skin escolhida ou automática pelo nível) para a moldura
+  const hasClass = isCharacterClass(characterClass);
+  const artSrc = hasClass ? resolveImage(characterClass, progress.level) : null;
 
   return (
     <>
@@ -32,14 +42,25 @@ export default function ProfilePage() {
       >
         <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand/20 blur-3xl" />
         <div className="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
-          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-brand-gradient font-display text-4xl font-bold text-white shadow-glow">
-            {userProfile.name.charAt(0)}
+          {/* moldura com a arte do personagem (igual ao dashboard) */}
+          <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-3xl border border-white/10 bg-ink shadow-glow sm:h-44 sm:w-44">
+            {artSrc ? (
+              <Image
+                src={artSrc}
+                alt={`Classe ${characterClass}`}
+                fill
+                sizes="(max-width: 640px) 9rem, 11rem"
+                className="object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-brand-gradient font-display text-6xl font-bold text-white">
+                {userProfile.name.charAt(0)}
+              </div>
+            )}
           </div>
           <div className="flex-1">
             <h2 className="font-display text-2xl font-bold text-soft">{userProfile.name}</h2>
-            <p className="mt-1 text-sm text-brand-light">
-              Nível {progress.level} — {userProfile.title}
-            </p>
+            <p className="mt-1 text-sm text-brand-light">Nível {progress.level}</p>
             {characterClass && (
               <p className="mt-0.5 text-sm text-soft">
                 Classe: <span className="font-medium text-brand-light">{characterClass}</span>
@@ -73,11 +94,27 @@ export default function ProfilePage() {
             >
               <Repeat size={16} /> Trocar classe
             </Button>
+            <Button
+              variant="secondary"
+              className="w-full sm:w-auto"
+              onClick={() => setOutfitModalOpen(true)}
+              disabled={!hasClass}
+            >
+              <Shirt size={16} /> Trocar roupa
+            </Button>
           </div>
         </div>
       </motion.div>
 
       <ChangeClassModal open={classModalOpen} onClose={() => setClassModalOpen(false)} />
+      {isCharacterClass(characterClass) && (
+        <ChangeOutfitModal
+          open={outfitModalOpen}
+          onClose={() => setOutfitModalOpen(false)}
+          characterClass={characterClass}
+          level={progress.level}
+        />
+      )}
 
       {/* estatísticas */}
       <AnimatedGrid className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

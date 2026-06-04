@@ -44,6 +44,25 @@ export function getClassMeta(id: CharacterClass): CharacterClassMeta | undefined
 }
 
 /**
+ * Faixas (tiers) de skin disponíveis para cada classe — uma arte por faixa.
+ * O nível necessário para desbloquear cada skin é o próprio número do tier.
+ */
+export type SkinTier = 1 | 10 | 25 | 50 | 100;
+
+/** Todos os tiers de skin, em ordem crescente de desbloqueio. */
+export const SKIN_TIERS: SkinTier[] = [1, 10, 25, 50, 100];
+
+/** Type guard: o valor é um tier de skin válido? */
+export function isSkinTier(value: unknown): value is SkinTier {
+  return typeof value === "number" && (SKIN_TIERS as number[]).includes(value);
+}
+
+/** Rótulo curto do tier para a UI do carrossel (ex.: "Nível 25"). */
+export function skinTierLabel(tier: SkinTier): string {
+  return `Nível ${tier}`;
+}
+
+/**
  * Faixa de arte correspondente ao nível (variantes disponíveis em /public):
  * - 1–9   → lv1
  * - 10–24 → lv10
@@ -51,7 +70,7 @@ export function getClassMeta(id: CharacterClass): CharacterClassMeta | undefined
  * - 50–99 → lv50
  * - 100+  → lv100
  */
-export function levelArtTier(level: number): 1 | 10 | 25 | 50 | 100 {
+export function levelArtTier(level: number): SkinTier {
   if (level >= 100) return 100;
   if (level >= 50) return 50;
   if (level >= 25) return 25;
@@ -59,11 +78,29 @@ export function levelArtTier(level: number): 1 | 10 | 25 | 50 | 100 {
   return 1;
 }
 
-/** Caminho da arte de uma classe para um dado nível (evolui por faixa). */
-export function getCharacterImage(id: CharacterClass, level: number): string {
+/**
+ * Uma skin está desbloqueada quando o nível do jogador alcançou (ou passou)
+ * o nível do tier. Ex.: tier 25 desbloqueia a partir do nível 25.
+ */
+export function isSkinTierUnlocked(level: number, tier: SkinTier): boolean {
+  return level >= tier;
+}
+
+/** O maior tier que o jogador já desbloqueou no nível atual (sempre ≥ 1). */
+export function highestUnlockedTier(level: number): SkinTier {
+  return levelArtTier(level);
+}
+
+/** Caminho da arte de uma classe para um tier específico (sem checar nível). */
+export function getCharacterImageByTier(id: CharacterClass, tier: SkinTier): string {
   const meta = getClassMeta(id);
   if (!meta) return "";
-  return `/characters/${meta.slug}lv${levelArtTier(level)}.webp`;
+  return `/characters/${meta.slug}lv${tier}.webp`;
+}
+
+/** Caminho da arte de uma classe para um dado nível (evolui por faixa). */
+export function getCharacterImage(id: CharacterClass, level: number): string {
+  return getCharacterImageByTier(id, levelArtTier(level));
 }
 
 /** Caminho da arte "final" (lv100) — usada nos cards de seleção de classe. */

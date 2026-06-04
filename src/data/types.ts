@@ -28,6 +28,23 @@ export interface Ticket {
 
 export const TICKET_TYPES: TicketType[] = ["Problema", "Sugestão", "Dúvida"];
 
+/* -------------------------------------------------------------------------- */
+/*  Notificações                                                               */
+/* -------------------------------------------------------------------------- */
+
+export type NotificationType = "info" | "success" | "warning";
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  /** detalhe opcional. */
+  description?: string;
+  /** data/hora de criação (ISO). */
+  createdAt: string;
+  read: boolean;
+}
+
 /** Dia da semana: 0 = Domingo … 6 = Sábado (compatível com Date.getDay()). */
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
