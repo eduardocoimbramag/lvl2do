@@ -29,9 +29,9 @@ export function DailyXpCard({
       initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className={cn("card-surface p-6", className)}
+      className={cn("card-surface flex flex-col p-6", className)}
     >
-      <div className="mb-3 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <h3 className="inline-flex items-center gap-2 font-display font-semibold text-soft">
           <Zap size={16} className="text-brand-light" /> XP diário
         </h3>
@@ -45,29 +45,31 @@ export function DailyXpCard({
         </span>
       </div>
 
-      <ProgressBar
-        value={used}
-        max={limit}
-        tone={reachedLimit ? "success" : "brand"}
-      />
+      <div className="flex flex-1 flex-col justify-center gap-3">
+        <ProgressBar
+          value={used}
+          max={limit}
+          tone={reachedLimit ? "success" : "brand"}
+        />
 
-      {reachedLimit ? (
-        <p className="mt-3 inline-flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
-          <Ban size={14} className="mt-0.5 shrink-0" />
-          Limite diário de XP atingido. Você ainda pode concluir missões, mas elas
-          não gerarão XP hoje.
-        </p>
-      ) : nearLimit ? (
-        <p className="mt-3 inline-flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-          Você está perto do limite diário de XP. Priorize missões importantes.
-        </p>
-      ) : (
-        <p className="mt-2 text-xs text-muted">
-          Faltam <span className="text-brand-light">{limit - used} XP</span> para o
-          limite diário.
-        </p>
-      )}
+        {reachedLimit ? (
+          <p className="inline-flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
+            <Ban size={14} className="mt-0.5 shrink-0" />
+            Limite diário de XP atingido. Você ainda pode concluir missões, mas elas
+            não gerarão XP hoje.
+          </p>
+        ) : nearLimit ? (
+          <p className="inline-flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            Você está perto do limite diário de XP. Priorize missões importantes.
+          </p>
+        ) : (
+          <p className="text-xs text-muted">
+            Faltam <span className="text-brand-light">{limit - used} XP</span> para o
+            limite diário.
+          </p>
+        )}
+      </div>
     </motion.div>
   );
 }

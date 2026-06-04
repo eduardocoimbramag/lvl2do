@@ -7,7 +7,6 @@ import { Plus, Target, ArrowRight, Quote, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LevelCard } from "@/components/LevelCard";
 import { CompletionCard } from "@/components/CompletionCard";
-import { StatCard } from "@/components/StatCard";
 import { DailyXpCard } from "@/components/DailyXpCard";
 import { MissionCard } from "@/components/MissionCard";
 import { ButtonLink } from "@/components/Button";
@@ -63,13 +62,22 @@ export default function DashboardPage() {
 
       {/* linha 2: missões hoje (1/4) + XP diário (1/4) + frase do dia (2/4) */}
       <div className="mt-5 grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Missões concluídas hoje"
-          value={`${doneToday}/${missions.length}`}
-          hint="Continue assim!"
-          icon={Target}
-          className="h-full"
-        />
+        {/* missões concluídas hoje — mesmo padrão dos cards ao lado */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="card-surface flex h-full flex-col p-6"
+        >
+          <h3 className="inline-flex items-center gap-2 font-display font-semibold text-soft">
+            <Target size={16} className="text-brand-light" /> Missões concluídas hoje
+          </h3>
+          <div className="flex flex-1 items-center">
+            <p className="font-display text-4xl font-bold text-soft">
+              {doneToday}/{missions.length}
+            </p>
+          </div>
+        </motion.div>
 
         <DailyXpCard
           used={daily.used}
