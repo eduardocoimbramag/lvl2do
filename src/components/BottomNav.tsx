@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { appNav } from "@/data/navigation";
+import { primaryNav } from "@/data/navigation";
 import { cn } from "@/lib/utils";
 
 /** Navegação inferior funcional no mobile (substitui a sidebar). */
@@ -13,7 +13,7 @@ export function BottomNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/[0.06] bg-ink-card/90 backdrop-blur-xl md:hidden">
       <div className="flex items-stretch justify-around">
-        {appNav.map((item) => {
+        {primaryNav.map((item) => {
           const active = pathname === item.href;
           return (
             <Link

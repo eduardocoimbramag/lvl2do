@@ -12,6 +12,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { AppTopbar } from "@/components/AppTopbar";
 import { GlobalXpToast } from "@/components/GlobalXpToast";
 import { ClassGuard } from "@/components/ClassGuard";
+import { AlarmScheduler } from "@/components/AlarmScheduler";
 import { AppStateProvider } from "@/hooks/AppStateProvider";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* feedback de XP (ganho/perda) visível em qualquer página */}
           <GlobalXpToast />
+
+          {/* motor de disparo dos alarmes (sem UI) — toca som + notifica no horário */}
+          <AlarmScheduler />
         </div>
       </ClassGuard>
     </AppStateProvider>

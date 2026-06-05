@@ -1,8 +1,10 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useUserStats } from "./useUserStats";
 import { useMissions } from "./useMissions";
+import { useAlarms } from "./useAlarms";
+import { useNotifications } from "./useNotifications";
 
 /**
  * Estado global do app (missões + progressão de XP), em uma ÚNICA instância
@@ -14,9 +16,19 @@ import { useMissions } from "./useMissions";
  * provider único, concluir uma missão em qualquer lugar credita o mesmo XP e
  * atualiza todas as telas em tempo real.
  */
+/** API de alarmes global + atalho para desativar (usado pelo scheduler). */
+type AlarmsApi = ReturnType<typeof useAlarms> & {
+  /** desativa um alarme por id (idempotente) — atalho de setEnabled(id, false). */
+  toggleEnabledOff: (id: string) => void;
+};
+
 type AppState = ReturnType<typeof useUserStats> & {
   /** API de missões (lista de hoje, todas, toggle, fail, add, etc.). */
   missionsApi: ReturnType<typeof useMissions>;
+  /** API de alarmes (lista, add, update, remove, enable). */
+  alarmsApi: AlarmsApi;
+  /** API de notificações (compartilhada com a sineta, em tempo real). */
+  notificationsApi: ReturnType<typeof useNotifications>;
 };
 
 const AppStateContext = createContext<AppState | null>(null);
@@ -32,7 +44,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     onMissionReverted: (xp) => userStats.revertMission(xp),
   });
 
-  const value: AppState = { ...userStats, missionsApi };
+  // Alarmes + notificações em instância única (página e scheduler/sineta
+  // compartilham o mesmo estado, refletindo em tempo real).
+  const alarms = useAlarms();
+  const notificationsApi = useNotifications();
+
+  const setEnabled = alarms.setEnabled;
+  const toggleEnabledOff = useCallback((id: string) => setEnabled(id, false), [setEnabled]);
+  const alarmsApi: AlarmsApi = useMemo(
+    () => ({ ...alarms, toggleEnabledOff }),
+    [alarms, toggleEnabledOff],
+  );
+
+  const value: AppState = { ...userStats, missionsApi, alarmsApi, notificationsApi };
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }
@@ -49,4 +73,14 @@ export function useAppStats(): AppState {
 /** Acessa a API de missões global (mesma instância em todas as páginas). */
 export function useAppMissions() {
   return useAppStats().missionsApi;
+}
+
+/** Acessa a API de alarmes global (mesma instância em página e scheduler). */
+export function useAppAlarms() {
+  return useAppStats().alarmsApi;
+}
+
+/** Acessa a API de notificações global (compartilhada com a sineta). */
+export function useAppNotifications() {
+  return useAppStats().notificationsApi;
 }

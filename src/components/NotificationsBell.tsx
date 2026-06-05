@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bell, BellOff, CheckCheck, Info, CheckCircle2, AlertTriangle, X, type LucideIcon } from "lucide-react";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useAppNotifications } from "@/hooks/AppStateProvider";
 import type { NotificationType } from "@/data/types";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +34,7 @@ function formatWhen(iso: string) {
  */
 export function NotificationsBell() {
   const { notifications, unreadCount, markAllRead, removeNotification, clearAll } =
-    useNotifications();
+    useAppNotifications();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 

@@ -128,6 +128,34 @@ export function useMissions(options: UseMissionsOptions = {}) {
     setMissions((prev) => [{ ...mission, id: `${mission.id}-${prev.length}` }, ...prev]);
   }, []);
 
+  /**
+   * Adiciona uma missão JÁ concluída (usado pelo Modo Foco). Cria a missão com
+   * status "done" agendada para hoje e credita o XP pelo mesmo caminho das
+   * missões normais (respeitando o limite diário), para atualizar nível/barra.
+   * Retorna o XP efetivamente creditado.
+   */
+  const addCompletedMission = useCallback(
+    (input: { title: string; category: Mission["category"]; xp: number; shift?: Mission["shift"] }) => {
+      const id = `focus-${Date.now()}`;
+      const mission: Mission = {
+        id,
+        title: input.title,
+        category: input.category,
+        difficulty: "Média",
+        shift: input.shift ?? "Tarde",
+        status: "done",
+        xp: input.xp,
+        schedule: { type: "today" },
+      };
+      setMissions((prev) => [mission, ...prev]);
+      // credita o XP fora do updater (mesma estratégia do toggle)
+      const credited = onCompletedRef.current?.(input.xp) ?? 0;
+      creditedByMission.current[id] = credited;
+      return credited;
+    },
+    [],
+  );
+
   /** Atualiza a regra de agendamento de uma missão (ex.: editar dias/datas). */
   const updateSchedule = useCallback((id: string, schedule: MissionSchedule) => {
     setMissions((prev) => prev.map((m) => (m.id === id ? { ...m, schedule } : m)));
@@ -161,6 +189,7 @@ export function useMissions(options: UseMissionsOptions = {}) {
     toggle,
     fail,
     addMission,
+    addCompletedMission,
     updateSchedule,
     removeMission,
     stats,
