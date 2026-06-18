@@ -75,31 +75,34 @@ export const features: ContentCard[] = [
   },
 ];
 
-/** Planos. */
-export const plans = [
-  {
-    name: "Free",
-    price: "R$ 0",
-    description: "Para começar sua jornada de evolução.",
-    features: ["Missões básicas", "XP e nível", "Dashboard simples", "Streak diário"],
-    cta: { label: "Começar agora", href: "/register" },
-    highlighted: false,
-  },
-  {
-    name: "Pro",
-    price: "Em breve",
-    description: "Para quem quer levar a evolução a sério.",
-    features: [
-      "Missões ilimitadas",
-      "Relatórios avançados",
-      "Temas personalizados",
-      "Análises inteligentes",
-    ],
-    cta: { label: "Em breve", href: "#" },
-    highlighted: true,
-    badge: "Pro",
-    disabled: true,
-  },
-];
+/** Plano Pro — card único de destaque (texto + arte + CTAs). */
+export const proPlan = {
+  eyebrow: "Plano Pro",
+  title: "Tudo desbloqueado para evoluir sem limites",
+  description:
+    "Um único plano com acesso completo. Comece com 14 dias grátis e leve sua evolução a sério.",
+  features: [
+    "Missões ilimitadas",
+    "Todas as classes desbloqueadas",
+    "Evolução visual do personagem",
+    "Modo Focus/Pomodoro",
+    "Alarmes inteligentes",
+    "Gráficos de progresso",
+  ],
+  ctas: [
+    {
+      label: "Começar teste grátis",
+      note: "14 dias grátis. Depois R$ 14,90/mês. Renovação automática. Cancele quando quiser.",
+      href: "/register",
+      variant: "primary" as const,
+    },
+    {
+      label: "R$ 8,32/mês no plano anual",
+      note: "Economize escolhendo o plano anual. R$ 99,90/ano",
+      href: "/register",
+      variant: "outline" as const,
+    },
+  ],
+};
 
 export const sparkleIcon = Sparkles;

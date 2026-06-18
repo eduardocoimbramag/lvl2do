@@ -1,16 +1,16 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { DashboardMockup } from "@/components/DashboardMockup";
 import { ButtonLink } from "@/components/Button";
 import { FeatureCard } from "@/components/FeatureCard";
-import { PricingCard } from "@/components/PricingCard";
+import { ProShowcase } from "@/components/ProShowcase";
 import { SectionHeader, AnimatedGrid } from "@/components/Section";
-import { howItWorks, features, plans } from "@/data/landingContent";
+import { howItWorks, features } from "@/data/landingContent";
 import { fadeUp, staggerContainer } from "@/lib/animations";
 
 export default function LandingPage() {
@@ -29,26 +29,20 @@ export default function LandingPage() {
               animate="show"
               className="text-center lg:text-left"
             >
-              <motion.span variants={fadeUp} className="eyebrow">
-                <Sparkles size={13} /> Seu desenvolvimento em jogo
-              </motion.span>
-
               <motion.h1
                 variants={fadeUp}
                 className="mt-5 font-display text-4xl font-bold leading-[1.1] tracking-tight text-soft sm:text-5xl lg:text-6xl"
               >
-                Transforme sua rotina em{" "}
-                <span className="text-gradient">missões</span>.
-                <br className="hidden sm:block" /> Evolua um nível por dia.
+                Transforme sua rotina em uma{" "}
+                <span className="text-gradient">jornada de RPG</span>.
               </motion.h1>
 
               <motion.p
                 variants={fadeUp}
                 className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted lg:mx-0 sm:text-lg"
               >
-                Organize tarefas pessoais e profissionais, ganhe XP ao concluir missões,
-                mantenha sua sequência diária e acompanhe sua evolução com dashboards
-                simples e inteligentes.
+                Organize suas tarefas como missões e evolua seu personagem enquanto evolui
+                na vida real. Acompanhe seu progresso com dashboards inteligentes.
               </motion.p>
 
               <motion.div
@@ -85,7 +79,6 @@ export default function LandingPage() {
         <section id="como-funciona" className="scroll-mt-24 py-20 sm:py-28">
           <div className="container-page">
             <SectionHeader
-              eyebrow="Como funciona"
               title="Quatro passos para evoluir"
               subtitle="Um fluxo simples que transforma sua produtividade em um jogo de evolução contínua."
             />
@@ -101,7 +94,6 @@ export default function LandingPage() {
         <section id="recursos" className="scroll-mt-24 py-20 sm:py-28">
           <div className="container-page">
             <SectionHeader
-              eyebrow="Recursos"
               title="Tudo para manter sua evolução no ritmo"
               subtitle="Ferramentas pensadas para tornar a constância natural e a evolução visível."
             />
@@ -117,15 +109,10 @@ export default function LandingPage() {
         <section id="planos" className="scroll-mt-24 py-20 sm:py-28">
           <div className="container-page">
             <SectionHeader
-              eyebrow="Planos"
-              title="Comece grátis, evolua quando quiser"
-              subtitle="Tudo que você precisa para começar — sem cartão de crédito."
+              title="Um plano, evolução sem limites"
+              subtitle="Tudo desbloqueado. Comece com 14 dias grátis e cancele quando quiser."
             />
-            <AnimatedGrid className="mx-auto mt-14 grid max-w-3xl gap-6 md:grid-cols-2">
-              {plans.map((plan) => (
-                <PricingCard key={plan.name} {...plan} />
-              ))}
-            </AnimatedGrid>
+            <ProShowcase />
           </div>
         </section>
 
