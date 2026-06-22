@@ -55,12 +55,22 @@ const config: Config = {
         shimmer: {
           "100%": { transform: "translateX(100%)" },
         },
+        marquee: {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(-50%)" },
+        },
+        "marquee-reverse": {
+          from: { transform: "translateX(-50%)" },
+          to: { transform: "translateX(0)" },
+        },
       },
       animation: {
         "pulse-glow": "pulse-glow 3s ease-in-out infinite",
         float: "float 6s ease-in-out infinite",
         "spin-slow": "spin-slow 24s linear infinite",
         shimmer: "shimmer 2s infinite",
+        marquee: "marquee 40s linear infinite",
+        "marquee-reverse": "marquee-reverse 40s linear infinite",
       },
     },
   },

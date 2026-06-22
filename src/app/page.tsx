@@ -7,10 +7,10 @@ import { Footer } from "@/components/Footer";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { DashboardMockup } from "@/components/DashboardMockup";
 import { ButtonLink } from "@/components/Button";
-import { FeatureCard } from "@/components/FeatureCard";
+import { ProblemSolution } from "@/components/ProblemSolution";
+import { ClassShowcase } from "@/components/ClassShowcase";
 import { ProShowcase } from "@/components/ProShowcase";
-import { SectionHeader, AnimatedGrid } from "@/components/Section";
-import { howItWorks, features } from "@/data/landingContent";
+import { SectionHeader } from "@/components/Section";
 import { fadeUp, staggerContainer } from "@/lib/animations";
 
 export default function LandingPage() {
@@ -33,8 +33,8 @@ export default function LandingPage() {
                 variants={fadeUp}
                 className="mt-5 font-display text-4xl font-bold leading-[1.1] tracking-tight text-soft sm:text-5xl lg:text-6xl"
               >
-                Transforme sua rotina em uma{" "}
-                <span className="text-gradient">jornada de RPG</span>.
+                Transforme sua rotina em uma jornada de{" "}
+                <span className="text-gradient">RPG</span>.
               </motion.h1>
 
               <motion.p
@@ -57,16 +57,6 @@ export default function LandingPage() {
                 </ButtonLink>
               </motion.div>
 
-              <motion.div
-                variants={fadeUp}
-                className="mt-8 flex items-center justify-center gap-6 text-sm text-muted lg:justify-start"
-              >
-                <span>+10 XP por missão fácil</span>
-                <span className="h-1 w-1 rounded-full bg-muted/40" />
-                <span>Streak diário</span>
-                <span className="h-1 w-1 rounded-full bg-muted/40" />
-                <span>Free para começar</span>
-              </motion.div>
             </motion.div>
 
             <div className="relative">
@@ -75,33 +65,17 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ---------------- COMO FUNCIONA ---------------- */}
+        {/* ---------------- PROBLEMA × NOSSO SISTEMA ---------------- */}
         <section id="como-funciona" className="scroll-mt-24 py-20 sm:py-28">
           <div className="container-page">
-            <SectionHeader
-              title="Quatro passos para evoluir"
-              subtitle="Um fluxo simples que transforma sua produtividade em um jogo de evolução contínua."
-            />
-            <AnimatedGrid className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {howItWorks.map((item, i) => (
-                <FeatureCard key={item.title} {...item} step={i + 1} />
-              ))}
-            </AnimatedGrid>
+            <ProblemSolution />
           </div>
         </section>
 
-        {/* ---------------- RECURSOS ---------------- */}
+        {/* ---------------- CLASSES ---------------- */}
         <section id="recursos" className="scroll-mt-24 py-20 sm:py-28">
           <div className="container-page">
-            <SectionHeader
-              title="Tudo para manter sua evolução no ritmo"
-              subtitle="Ferramentas pensadas para tornar a constância natural e a evolução visível."
-            />
-            <AnimatedGrid className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map((item) => (
-                <FeatureCard key={item.title} {...item} />
-              ))}
-            </AnimatedGrid>
+            <ClassShowcase />
           </div>
         </section>
 

@@ -56,7 +56,7 @@ export function Header() {
                 Entrar
               </ButtonLink>
               <ButtonLink href="/register" size="sm">
-                Começar agora
+                Registre-se
               </ButtonLink>
             </Show>
             <Show when="signed-in">

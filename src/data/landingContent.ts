@@ -1,7 +1,5 @@
 import {
-  ListChecks,
   Zap,
-  TrendingUp,
   BarChart3,
   Layers,
   Sparkles,
@@ -10,6 +8,7 @@ import {
   Trophy,
   type LucideIcon,
 } from "lucide-react";
+import { getCharacterImageByTier } from "./characterClasses";
 
 interface ContentCard {
   icon: LucideIcon;
@@ -17,27 +16,43 @@ interface ContentCard {
   description: string;
 }
 
-/** Seção "Como funciona" — 4 passos. */
-export const howItWorks: ContentCard[] = [
+/** Seção "Problema → Nosso sistema" — texto do lado "Problema". */
+export const problemContent = {
+  /** Frase de impacto, exibida em destaque. */
+  hook: "Apps de tarefas não falham por falta de funções. Falham porque não dão vontade de voltar amanhã.",
+  /** Texto comum, complementar. */
+  body: "Você cria uma lista. Marca algumas tarefas. Esquece o app. Abandona a rotina. O problema não é falta de disciplina. É falta de recompensa, progressão e motivo emocional para continuar.",
+  /** Tarefas decorativas que "somem" (ilustram o abandono). */
+  fadingTasks: ["Beber 2L de água", "Ler 10 páginas", "Treinar 30 min", "Estudar inglês"],
+};
+
+export interface SystemStep {
+  title: string;
+  description: string;
+  /** Arte do personagem (Guerreiro) na faixa de nível. */
+  image: string;
+  level: number;
+}
+
+/** Seção "Nosso sistema" — 3 passos com a evolução do Guerreiro. */
+export const systemSteps: SystemStep[] = [
   {
-    icon: ListChecks,
-    title: "Crie missões",
-    description: "Transforme tarefas pessoais e profissionais em missões com categoria e dificuldade.",
+    title: "Crie suas missões",
+    description: "Organize tarefas por categoria, turno e dificuldade.",
+    image: getCharacterImageByTier("Guerreiro", 1),
+    level: 1,
   },
   {
-    icon: Zap,
-    title: "Ganhe XP",
-    description: "Cada missão concluída rende XP automaticamente, de acordo com a dificuldade.",
+    title: "Evolua seu personagem",
+    description: "Ganhe XP ao concluir missões, suba de nível ao mesmo tempo que performa na vida real.",
+    image: getCharacterImageByTier("Guerreiro", 25),
+    level: 25,
   },
   {
-    icon: Trophy,
-    title: "Suba de nível",
-    description: "Acumule XP, suba de nível e desbloqueie sua evolução dia após dia.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Acompanhe o progresso",
-    description: "Visualize sua evolução com dashboards simples e inteligentes.",
+    title: "Mantenha seu streak",
+    description: "Crie constância, suba no ranking e compartilhe sua evolução com seus amigos.",
+    image: getCharacterImageByTier("Guerreiro", 100),
+    level: 100,
   },
 ];
 

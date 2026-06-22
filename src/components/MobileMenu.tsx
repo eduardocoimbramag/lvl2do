@@ -65,7 +65,7 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
                   Entrar
                 </ButtonLink>
                 <ButtonLink href="/register" className="w-full" onClick={onClose}>
-                  Começar agora
+                  Registre-se
                 </ButtonLink>
               </Show>
               <Show when="signed-in">
