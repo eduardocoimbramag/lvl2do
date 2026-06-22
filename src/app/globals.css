@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-ink text-soft font-sans antialiased;
+  /* subtle dynamic gradient backdrop */
+  background-color: #050509;
+  background-image:
+    radial-gradient(45% 35% at 80% -5%, rgba(168, 85, 247, 0.16), transparent 70%),
+    radial-gradient(40% 40% at 0% 10%, rgba(139, 92, 246, 0.12), transparent 70%),
+    radial-gradient(60% 50% at 50% 110%, rgba(192, 132, 252, 0.08), transparent 70%);
+  background-attachment: fixed;
+}
+
+/* ---- Reusable design-system layers ---- */
+@layer components {
+  /* Premium card with thin translucent border + depth */
+  .card-surface {
+    @apply rounded-2xl border border-white/[0.06] bg-ink-card/80 shadow-card backdrop-blur-sm;
+  }
+
+  .card-glow {
+    @apply card-surface transition-all duration-300;
+  }
+  .card-glow:hover {
+    @apply border-brand/40 shadow-glow -translate-y-0.5;
+  }
+
+  /* Brand text gradient */
+  .text-gradient {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+
+  /* Thin section heading eyebrow */
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-xs font-medium text-brand-light;
+  }
+}
+
+@layer utilities {
+  /* container helper consistent across pages */
+  .container-page {
+    @apply mx-auto w-full max-w-7xl px-5 sm:px-8;
+  }
+
+  /* esconde a barra de rolagem (ex.: trilho do carrossel de skins) */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Custom scrollbar — keeps the premium dark feel */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #050509;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 9999px;
+  border: 2px solid #050509;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.55);
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
