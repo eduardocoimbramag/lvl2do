@@ -4,6 +4,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { ProgressBar } from "./ProgressBar";
 import { XpBolt } from "./AnimatedSvgIcon";
+import { StreakIndicator } from "./StreakIndicator";
 import { getCharacterImage, isCharacterClass } from "@/data/characterClasses";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,11 @@ interface LevelCardProps {
    * prioridade sobre a derivação automática pelo nível. Opcional.
    */
   artSrc?: string | null;
+  /**
+   * Dias consecutivos de streak (sequência). Quando informado, mostra o
+   * indicador de streak no canto superior direito. Opcional.
+   */
+  streakDays?: number;
   className?: string;
 }
 
@@ -34,6 +40,7 @@ export function LevelCard({
   displayName,
   characterClass,
   artSrc: artSrcProp,
+  streakDays,
   className,
 }: LevelCardProps) {
   // arte: prioriza a skin resolvida vinda de fora; senão, deriva do nível.
@@ -47,12 +54,19 @@ export function LevelCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
       className={cn(
-        "card-surface relative flex h-full items-center gap-5 overflow-hidden p-5 sm:gap-6 sm:p-6",
+        "card-surface relative flex h-full items-center gap-5 p-5 sm:gap-6 sm:p-6",
         className,
       )}
     >
-      {/* glow decorativo */}
-      <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-brand/20 blur-3xl" />
+      {/* glow decorativo (clipado pelo próprio layer p/ não vazar o card) */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-brand/20 blur-3xl" />
+      </div>
+
+      {/* indicador de streak — canto superior direito */}
+      {streakDays !== undefined && (
+        <StreakIndicator days={streakDays} className="absolute right-4 top-4 z-10 sm:right-5 sm:top-5" />
+      )}
 
       {/* moldura com a arte do personagem */}
       <div className="relative aspect-square w-36 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-ink shadow-glow sm:w-44">
@@ -74,7 +88,7 @@ export function LevelCard({
 
       {/* conteúdo à direita — distribuído na altura do card */}
       <div className="relative flex min-w-0 flex-1 flex-col justify-center gap-5">
-        <div>
+        <div className={cn(streakDays !== undefined && "pr-16 sm:pr-20")}>
           <p className="text-xs uppercase tracking-widest text-muted">Nível atual</p>
           {displayName && (
             <h3 className="truncate font-display text-xl font-semibold text-soft sm:text-2xl">

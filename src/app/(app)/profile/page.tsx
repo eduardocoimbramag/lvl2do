@@ -10,9 +10,12 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { AnimatedGrid } from "@/components/Section";
 import { Button } from "@/components/Button";
+import { ReferralSection } from "@/components/ReferralSection";
 import { ChangeClassModal } from "@/components/ChangeClassModal";
 import { ChangeOutfitModal } from "@/components/ChangeOutfitModal";
+import { EditProfileModal } from "@/components/EditProfileModal";
 import { useAppStats } from "@/hooks/AppStateProvider";
+import { useProfileIdentity } from "@/hooks/useProfileIdentity";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { useCharacterSkin } from "@/hooks/useCharacterSkin";
 import { isCharacterClass } from "@/data/characterClasses";
@@ -22,8 +25,12 @@ export default function ProfilePage() {
   const { stats, progress } = useAppStats();
   const { characterClass } = useCharacterClass();
   const { resolveImage } = useCharacterSkin();
+  const identity = useProfileIdentity();
   const [classModalOpen, setClassModalOpen] = useState(false);
   const [outfitModalOpen, setOutfitModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
+  const displayName = identity.displayName ?? userProfile.name;
 
   // arte do personagem (skin escolhida ou automática pelo nível) para a moldura
   const hasClass = isCharacterClass(characterClass);
@@ -54,12 +61,19 @@ export default function ProfilePage() {
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-brand-gradient font-display text-6xl font-bold text-white">
-                {userProfile.name.charAt(0)}
+                {displayName.charAt(0)}
               </div>
             )}
           </div>
           <div className="flex-1">
-            <h2 className="font-display text-2xl font-bold text-soft">{userProfile.name}</h2>
+            <h2 className="font-display text-2xl font-bold text-soft">
+              {displayName}
+              {identity.tag && (
+                <span className="ml-1.5 align-middle text-lg font-semibold text-muted">
+                  #{identity.tag}
+                </span>
+              )}
+            </h2>
             <p className="mt-1 text-sm text-brand-light">Nível {progress.level}</p>
             {characterClass && (
               <p className="mt-0.5 text-sm text-soft">
@@ -83,8 +97,11 @@ export default function ProfilePage() {
 
           {/* ações da conta */}
           <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto">
-            {/* FUTURO CLERK: substituir por <UserButton /> / gestão de conta */}
-            <Button variant="secondary" className="w-full sm:w-auto">
+            <Button
+              variant="secondary"
+              className="w-full sm:w-auto"
+              onClick={() => setEditModalOpen(true)}
+            >
               Editar perfil
             </Button>
             <Button
@@ -106,6 +123,7 @@ export default function ProfilePage() {
         </div>
       </motion.div>
 
+      <EditProfileModal open={editModalOpen} onClose={() => setEditModalOpen(false)} />
       <ChangeClassModal open={classModalOpen} onClose={() => setClassModalOpen(false)} />
       {isCharacterClass(characterClass) && (
         <ChangeOutfitModal
@@ -128,6 +146,9 @@ export default function ProfilePage() {
           tone="success"
         />
       </AnimatedGrid>
+
+      {/* indicações (compacto) */}
+      <ReferralSection />
 
       {/* desempenho por categoria */}
       <motion.div

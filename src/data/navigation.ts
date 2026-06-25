@@ -4,6 +4,8 @@ import {
   AlarmClock,
   Brain,
   TrendingUp,
+  Users,
+  Trophy,
   User,
   LifeBuoy,
   type LucideIcon,
@@ -24,6 +26,8 @@ export const appNav: NavItem[] = [
   { label: "Alarmes", href: "/alarms", icon: AlarmClock },
   { label: "Modo Foco", href: "/focus", icon: Brain, shortLabel: "Foco" },
   { label: "Métricas/Progresso", href: "/progress", icon: TrendingUp, shortLabel: "Métricas" },
+  { label: "Amigos", href: "/friends", icon: Users },
+  { label: "Ranking", href: "/ranking", icon: Trophy },
   { label: "Perfil", href: "/profile", icon: User },
   { label: "Suporte", href: "/support", icon: LifeBuoy },
 ];

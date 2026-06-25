@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useUser } from "@clerk/nextjs";
 import { Plus, Target, ArrowRight, Quote, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { LevelCard } from "@/components/LevelCard";
@@ -13,6 +12,7 @@ import { MissionCard } from "@/components/MissionCard";
 import { ButtonLink } from "@/components/Button";
 import { AnimatedGrid } from "@/components/Section";
 import { useAppStats, useAppMissions } from "@/hooks/AppStateProvider";
+import { useProfileIdentity } from "@/hooks/useProfileIdentity";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { useCharacterSkin } from "@/hooks/useCharacterSkin";
 import { isCharacterClass } from "@/data/characterClasses";
@@ -25,11 +25,10 @@ export default function DashboardPage() {
   const { missions, toggle } = useAppMissions();
   const { characterClass } = useCharacterClass();
   const { resolveImage } = useCharacterSkin();
-  const { user } = useUser();
+  const { displayName } = useProfileIdentity();
 
-  // nome completo (nome + sobrenome) do usuário, com fallbacks
-  const fullName =
-    user?.fullName || user?.firstName || user?.username || userProfile.name;
+  // nome exibido: nickname (se houver) ou nome do Clerk, com fallback
+  const fullName = displayName ?? userProfile.name;
 
   // arte do personagem respeitando a skin escolhida (auto/manual)
   const characterArt = isCharacterClass(characterClass)
@@ -71,6 +70,7 @@ export default function DashboardPage() {
           displayName={fullName}
           characterClass={characterClass}
           artSrc={characterArt}
+          streakDays={userProfile.streak}
           className="lg:col-span-2"
         />
         <CompletionCard rows={completionRows} />
