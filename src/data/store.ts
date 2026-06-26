@@ -1,6 +1,6 @@
 /**
- * Loja (mock) — troca de cristais de energia por produtos físicos.
- * O custo de cada item é em cristais (ver `referralStats.crystals`).
+ * Loja — produtos físicos resgatáveis por cristais de energia.
+ * O custo de cada item é em cristais (saldo real em `profiles.crystals`).
  */
 
 export interface Product {

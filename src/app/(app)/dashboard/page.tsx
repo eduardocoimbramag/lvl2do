@@ -21,7 +21,7 @@ import { userProfile } from "@/data/mockStats";
 
 export default function DashboardPage() {
   // estado global compartilhado — concluir missão credita XP em tempo real
-  const { progress, daily } = useAppStats();
+  const { progress, daily, streak } = useAppStats();
   const { missions, toggle } = useAppMissions();
   const { characterClass } = useCharacterClass();
   const { resolveImage } = useCharacterSkin();
@@ -57,7 +57,7 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        title={`Bem-vindo de volta, ${userProfile.name}`}
+        title={`Bem-vindo de volta, ${fullName}`}
         subtitle="Aqui está o resumo da sua evolução."
       />
 
@@ -70,7 +70,7 @@ export default function DashboardPage() {
           displayName={fullName}
           characterClass={characterClass}
           artSrc={characterArt}
-          streakDays={userProfile.streak}
+          streakDays={streak}
           className="lg:col-span-2"
         />
         <CompletionCard rows={completionRows} />

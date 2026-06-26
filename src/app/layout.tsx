@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Sora, Manrope } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
-import { ptBR } from "@clerk/localizations";
+import { AuthProvider } from "@/components/AuthProvider";
 import "./globals.css";
 
 // Sora -> títulos / display
@@ -37,9 +36,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${sora.variable} ${manrope.variable}`}>
       <body>
-        <ClerkProvider localization={ptBR} afterSignOutUrl="/">
-          {children}
-        </ClerkProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

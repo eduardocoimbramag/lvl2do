@@ -27,6 +27,7 @@ export default function OnboardingPage() {
   const [nickname, setNickname] = useState("");
   const [tag, setTag] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const initRef = useRef(false);
 
   // Já escolheu (ou não está logado) → não fica preso na tela de onboarding.
@@ -54,11 +55,19 @@ export default function OnboardingPage() {
   async function handleConfirm() {
     if (!canConfirm) return;
     setSaving(true);
+    setError(null);
     try {
       await setIdentity(nickname, tag);
       await setCharacterClass(selected!);
       router.replace("/dashboard");
-    } catch {
+    } catch (err) {
+      console.error("Falha ao confirmar onboarding:", err);
+      const e = err as { code?: string; message?: string };
+      setError(
+        e?.code === "23505"
+          ? "Essa hashtag já está em uso para esse nickname. Tente outra."
+          : e?.message || "Não foi possível salvar. Tente novamente.",
+      );
       setSaving(false);
     }
   }
@@ -130,6 +139,7 @@ export default function OnboardingPage() {
                 </>
               )}
             </Button>
+            {error && <p className="text-sm text-red-400">{error}</p>}
             {!saving && (!identityOk || !selected) && (
               <p className="text-xs text-muted">
                 {!identityOk

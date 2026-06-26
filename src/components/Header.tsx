@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { motion } from "framer-motion";
-import { Show, UserButton } from "@clerk/nextjs";
+import { useAuth } from "./AuthProvider";
 import { Logo } from "./Logo";
 import { ButtonLink } from "./Button";
 import { MobileMenu } from "./MobileMenu";
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -51,20 +52,20 @@ export function Header() {
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
-            <Show when="signed-out">
-              <ButtonLink href="/login" variant="ghost" size="sm">
-                Entrar
+            {user ? (
+              <ButtonLink href="/dashboard" size="sm">
+                Ir para o Dashboard
               </ButtonLink>
-              <ButtonLink href="/register" size="sm">
-                Registre-se
-              </ButtonLink>
-            </Show>
-            <Show when="signed-in">
-              <ButtonLink href="/dashboard" variant="ghost" size="sm">
-                Dashboard
-              </ButtonLink>
-              <UserButton />
-            </Show>
+            ) : (
+              <>
+                <ButtonLink href="/login" variant="ghost" size="sm">
+                  Entrar
+                </ButtonLink>
+                <ButtonLink href="/register" size="sm">
+                  Registre-se
+                </ButtonLink>
+              </>
+            )}
           </div>
 
           <button

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
-import { Show } from "@clerk/nextjs";
+import { useAuth } from "./AuthProvider";
 import { Logo } from "./Logo";
 import { ButtonLink } from "./Button";
 import { landingNav } from "@/data/navigation";
@@ -14,6 +14,7 @@ interface MobileMenuProps {
 
 /** Drawer de navegação mobile da landing page. */
 export function MobileMenu({ open, onClose }: MobileMenuProps) {
+  const { user } = useAuth();
   return (
     <AnimatePresence>
       {open && (
@@ -60,19 +61,20 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
             </div>
 
             <div className="mt-auto flex flex-col gap-3 pt-6">
-              <Show when="signed-out">
-                <ButtonLink href="/login" variant="secondary" className="w-full" onClick={onClose}>
-                  Entrar
-                </ButtonLink>
-                <ButtonLink href="/register" className="w-full" onClick={onClose}>
-                  Registre-se
-                </ButtonLink>
-              </Show>
-              <Show when="signed-in">
+              {user ? (
                 <ButtonLink href="/dashboard" className="w-full" onClick={onClose}>
                   Ir para o Dashboard
                 </ButtonLink>
-              </Show>
+              ) : (
+                <>
+                  <ButtonLink href="/login" variant="secondary" className="w-full" onClick={onClose}>
+                    Entrar
+                  </ButtonLink>
+                  <ButtonLink href="/register" className="w-full" onClick={onClose}>
+                    Registre-se
+                  </ButtonLink>
+                </>
+              )}
             </div>
           </motion.nav>
         </motion.div>

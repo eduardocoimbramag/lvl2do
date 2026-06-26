@@ -1,17 +1,16 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
 
-const isPublicRoute = createRouteMatcher(["/", "/login(.*)", "/register(.*)"]);
-
-export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect();
-  }
-});
+/** Auth via Supabase: atualiza a sessão e protege as rotas internas. */
+export async function middleware(request: NextRequest) {
+  return await updateSession(request);
+}
 
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
-    "/__clerk/(.*)",
+    /*
+     * Tudo, exceto arquivos estáticos e imagens.
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2?|ttf|ico)$).*)",
   ],
 };

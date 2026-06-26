@@ -1,41 +1,36 @@
 "use client";
 
 import { useCallback } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth } from "@/components/AuthProvider";
+import { updateMyProfile } from "@/lib/db/profiles";
 import { isCharacterClass, type CharacterClass } from "@/data/characterClasses";
 
 /**
- * Lê/grava a classe de personagem do usuário no Clerk (unsafeMetadata).
- *
- * Por que unsafeMetadata: é editável pelo próprio cliente (o usuário escolhe a
- * própria classe) e fica ligada à conta — sobrevive a limpar o navegador e
- * funciona em qualquer dispositivo. "Primeiro login" = sem classe definida.
+ * Lê/grava a classe de personagem do usuário na tabela `profiles` (Supabase).
+ * "Primeiro login" = sem classe definida (`character_class` vazio).
  */
 export function useCharacterClass() {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { user, profile, loading, refreshProfile } = useAuth();
 
-  const raw = user?.unsafeMetadata?.characterClass;
+  const raw = profile?.character_class;
   const characterClass: CharacterClass | null = isCharacterClass(raw) ? raw : null;
 
-  /** Persiste a classe escolhida na conta Clerk. */
+  /** Persiste a classe escolhida no profile. */
   const setCharacterClass = useCallback(
     async (value: CharacterClass) => {
-      if (!user) return;
-      await user.update({
-        unsafeMetadata: { ...user.unsafeMetadata, characterClass: value },
-      });
+      await updateMyProfile({ character_class: value });
+      await refreshProfile();
     },
-    [user],
+    [refreshProfile],
   );
 
   return {
-    /** Clerk terminou de carregar o usuário? */
-    isLoaded,
-    isSignedIn: !!isSignedIn,
+    isLoaded: !loading,
+    isSignedIn: !!user,
     /** Classe atual ou null (null = ainda não escolheu → primeiro login). */
     characterClass,
     /** true quando o usuário está logado e ainda não tem classe. */
-    needsClassSelection: isLoaded && !!isSignedIn && characterClass === null,
+    needsClassSelection: !loading && !!user && characterClass === null,
     setCharacterClass,
   };
 }

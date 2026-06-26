@@ -1,36 +1,64 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { UserPlus, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { UserPlus, Users, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/Button";
 import { FriendCard } from "@/components/FriendCard";
 import { FriendProfileModal } from "@/components/FriendProfileModal";
 import { AddFriendModal } from "@/components/AddFriendModal";
 import { AnimatedGrid } from "@/components/Section";
-import { MOCK_FRIENDS, MOCK_SUGGESTED, type Friend } from "@/data/social";
+import { useAuth } from "@/components/AuthProvider";
+import { getFriends, searchProfiles, addFriend, removeFriend } from "@/lib/db/social";
+import type { Friend } from "@/data/social";
 
 /**
- * Sistema de amigos (mock, sem persistência).
- * Adicionar/remover altera apenas o estado local — integrar com backend depois.
+ * Sistema de amigos (real, persistido no Supabase).
+ * Busca por nickname#TAG, adiciona (amizade mútua) e remove via RPC.
  */
 export default function FriendsPage() {
-  const [friends, setFriends] = useState<Friend[]>(MOCK_FRIENDS);
+  const { user } = useAuth();
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Friend | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
-  // sugeridos que ainda não são amigos
-  const candidates = useMemo(() => {
-    const ids = new Set(friends.map((f) => f.id));
-    return MOCK_SUGGESTED.filter((s) => !ids.has(s.id));
-  }, [friends]);
+  // carrega os amigos do usuário
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    getFriends()
+      .then((rows) => {
+        if (active) setFriends(rows);
+      })
+      .catch((e) => console.error("Erro ao carregar amigos:", e))
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
-  function addFriend(f: Friend) {
-    setFriends((prev) => (prev.some((x) => x.id === f.id) ? prev : [f, ...prev]));
-  }
-  function removeFriend(id: string) {
+  // ids ocultados na busca: você + amigos atuais
+  const excludeIds = useMemo(
+    () => [user?.id ?? "", ...friends.map((f) => f.id)],
+    [user, friends],
+  );
+
+  const handleAdd = useCallback(async (friend: Friend) => {
+    await addFriend(friend.id);
+    setFriends((prev) => (prev.some((x) => x.id === friend.id) ? prev : [friend, ...prev]));
+  }, []);
+
+  const handleRemove = useCallback((id: string) => {
     setFriends((prev) => prev.filter((f) => f.id !== id));
-  }
+    removeFriend(id).catch((e) => {
+      console.error("Erro ao remover amigo:", e);
+      // recarrega em caso de falha
+      getFriends().then(setFriends).catch(() => {});
+    });
+  }, []);
 
   return (
     <>
@@ -49,14 +77,19 @@ export default function FriendsPage() {
         {friends.length} {friends.length === 1 ? "amigo" : "amigos"}
       </div>
 
-      {friends.length > 0 ? (
+      {loading ? (
+        <div className="card-surface flex flex-col items-center gap-3 p-12 text-center">
+          <Loader2 className="animate-spin text-brand-light" size={28} />
+          <p className="text-sm text-muted">Carregando amigos…</p>
+        </div>
+      ) : friends.length > 0 ? (
         <AnimatedGrid className="grid gap-4 sm:grid-cols-2">
           {friends.map((f) => (
             <FriendCard
               key={f.id}
               friend={f}
               onView={() => setSelected(f)}
-              onRemove={() => removeFriend(f.id)}
+              onRemove={() => handleRemove(f.id)}
             />
           ))}
         </AnimatedGrid>
@@ -73,13 +106,14 @@ export default function FriendsPage() {
       <FriendProfileModal
         friend={selected}
         onClose={() => setSelected(null)}
-        onRemove={removeFriend}
+        onRemove={handleRemove}
       />
       <AddFriendModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        candidates={candidates}
-        onAdd={addFriend}
+        search={searchProfiles}
+        onAdd={handleAdd}
+        excludeIds={excludeIds}
       />
     </>
   );

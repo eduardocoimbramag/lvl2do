@@ -14,15 +14,28 @@ import { ReferralSection } from "@/components/ReferralSection";
 import { ChangeClassModal } from "@/components/ChangeClassModal";
 import { ChangeOutfitModal } from "@/components/ChangeOutfitModal";
 import { EditProfileModal } from "@/components/EditProfileModal";
-import { useAppStats } from "@/hooks/AppStateProvider";
+import { useAuth } from "@/components/AuthProvider";
+import { useAppStats, useAppMissions } from "@/hooks/AppStateProvider";
 import { useProfileIdentity } from "@/hooks/useProfileIdentity";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { useCharacterSkin } from "@/hooks/useCharacterSkin";
 import { isCharacterClass } from "@/data/characterClasses";
-import { userProfile, totals, categoryProgress } from "@/data/mockStats";
+import { CATEGORIES } from "@/data/types";
+import { userProfile } from "@/data/mockStats";
+
+/** Formata `member_since` (ISO) como "Mês Ano" pt-BR (ex.: "Jun 2026"). */
+function formatMemberSince(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const month = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${d.getFullYear()}`;
+}
 
 export default function ProfilePage() {
-  const { stats, progress } = useAppStats();
+  const { profile } = useAuth();
+  const { stats, progress, streak, bestStreak } = useAppStats();
+  const { allMissions } = useAppMissions();
   const { characterClass } = useCharacterClass();
   const { resolveImage } = useCharacterSkin();
   const identity = useProfileIdentity();
@@ -33,6 +46,17 @@ export default function ProfilePage() {
   const displayName = identity.displayName ?? userProfile.name;
   // hashtag real (cadastrada) ou a de fallback do mock
   const tag = identity.tag ?? userProfile.tag;
+  // "Membro desde" real (profile.member_since), com fallback para o mock
+  const memberSince = formatMemberSince(profile?.member_since) ?? userProfile.joinedAt;
+
+  // estatísticas reais derivadas das missões do usuário
+  const completedCount = allMissions.filter((m) => m.status === "done").length;
+  const categoryRows = CATEGORIES.map((category) => {
+    const inCat = allMissions.filter((m) => m.category === category);
+    const done = inCat.filter((m) => m.status === "done").length;
+    const completion = inCat.length === 0 ? 0 : Math.round((done / inCat.length) * 100);
+    return { category, completion };
+  });
 
   // arte do personagem (skin escolhida ou automática pelo nível) para a moldura
   const hasClass = isCharacterClass(characterClass);
@@ -83,7 +107,7 @@ export default function ProfilePage() {
               </p>
             )}
             <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted">
-              <Calendar size={13} /> Membro desde {userProfile.joinedAt}
+              <Calendar size={13} /> Membro desde {memberSince}
             </p>
 
             <div className="mt-4 max-w-md">
@@ -139,11 +163,11 @@ export default function ProfilePage() {
       {/* estatísticas */}
       <AnimatedGrid className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="XP total" value={stats.totalXp.toLocaleString("pt-BR")} icon={Zap} />
-        <StatCard label="Missões concluídas" value={totals.missionsCompleted} icon={CheckCircle2} />
-        <StatCard label="Streak atual" value={`${userProfile.streak} dias`} icon={Flame} />
+        <StatCard label="Missões concluídas" value={completedCount} icon={CheckCircle2} />
+        <StatCard label="Streak atual" value={`${streak} dias`} icon={Flame} />
         <StatCard
           label="Maior streak"
-          value={`${userProfile.longestStreak} dias`}
+          value={`${bestStreak} dias`}
           icon={Trophy}
           tone="success"
         />
@@ -161,7 +185,7 @@ export default function ProfilePage() {
       >
         <h3 className="mb-5 font-display font-semibold text-soft">Desempenho por categoria</h3>
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-          {categoryProgress.map((c) => (
+          {categoryRows.map((c) => (
             <div key={c.category}>
               <div className="mb-1.5 flex items-center justify-between">
                 <CategoryBadge category={c.category} />

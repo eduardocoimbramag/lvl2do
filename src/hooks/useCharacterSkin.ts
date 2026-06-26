@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth } from "@/components/AuthProvider";
+import { updateMyProfile } from "@/lib/db/profiles";
 import {
   getCharacterImageByTier,
   isSkinTier,
@@ -18,62 +19,48 @@ import {
  */
 export type SkinPreference = "auto" | SkinTier;
 
-/** Type guard tolerante para o valor vindo do metadata. */
+/** Type guard tolerante para o valor vindo do banco (`character_skin`: texto). */
 function parseSkinPreference(value: unknown): SkinPreference {
   if (value === "auto") return "auto";
-  if (isSkinTier(value)) return value;
+  const n = typeof value === "string" ? Number(value) : value;
+  if (isSkinTier(n)) return n;
   return "auto";
 }
 
 /**
- * Lê/grava a preferência de skin do personagem no Clerk (unsafeMetadata).
- *
- * Por que unsafeMetadata: editável pelo próprio cliente, ligada à conta e
- * sobrevive a trocar de dispositivo — mesmo padrão de useCharacterClass.
+ * Lê/grava a preferência de skin do personagem na tabela `profiles`
+ * (`character_skin`, como texto: "auto" ou o número do tier).
  *
  * Regra de resolução (fonte de verdade para Dashboard e Perfil):
  * - "auto"      → tier = faixa do nível atual (evolui sozinho).
- * - tier fixo   → usa o tier escolhido, MAS faz clamp: se por algum motivo o
- *                 nível caiu abaixo desse tier (ex.: perda de XP / nível), cai
- *                 para a maior skin ainda desbloqueada. Nunca mostra bloqueada.
+ * - tier fixo   → usa o tier escolhido, com clamp ao maior desbloqueado.
  */
 export function useCharacterSkin() {
-  const { isLoaded, user } = useUser();
+  const { profile, loading, refreshProfile } = useAuth();
 
-  const skinPreference = parseSkinPreference(user?.unsafeMetadata?.skinTier);
+  const skinPreference = parseSkinPreference(profile?.character_skin);
 
-  /** Persiste a preferência ("auto" ou um tier) na conta Clerk. */
+  /** Persiste a preferência ("auto" ou um tier) no profile. */
   const setSkinPreference = useCallback(
     async (value: SkinPreference) => {
-      if (!user) return;
-      await user.update({
-        unsafeMetadata: { ...user.unsafeMetadata, skinTier: value },
-      });
+      await updateMyProfile({ character_skin: String(value) });
+      await refreshProfile();
     },
-    [user],
+    [refreshProfile],
   );
 
   /** Volta a skin a acompanhar o nível automaticamente. */
   const resetToAuto = useCallback(() => setSkinPreference("auto"), [setSkinPreference]);
 
-  /**
-   * Resolve qual tier de skin deve ser exibido para um dado nível, aplicando a
-   * regra acima (auto vs. fixo, com clamp ao desbloqueado).
-   */
   const resolveTier = useCallback(
     (level: number): SkinTier => {
       const autoTier = levelArtTier(level);
       if (skinPreference === "auto") return autoTier;
-      // fixo, mas só se ainda estiver desbloqueado; senão cai para o auto.
       return isSkinTierUnlocked(level, skinPreference) ? skinPreference : autoTier;
     },
     [skinPreference],
   );
 
-  /**
-   * Caminho da arte resolvida para a classe + nível, honrando a preferência.
-   * Use isto em vez de getCharacterImage onde houver escolha de roupa.
-   */
   const resolveImage = useCallback(
     (id: CharacterClass, level: number): string =>
       getCharacterImageByTier(id, resolveTier(level)),
@@ -81,10 +68,8 @@ export function useCharacterSkin() {
   );
 
   return {
-    isLoaded,
-    /** "auto" ou o tier fixado pelo usuário. */
+    isLoaded: !loading,
     skinPreference,
-    /** true quando a skin está seguindo o nível automaticamente. */
     isAuto: skinPreference === "auto",
     setSkinPreference,
     resetToAuto,

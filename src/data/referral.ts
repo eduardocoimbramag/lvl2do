@@ -1,7 +1,7 @@
 /**
- * Sistema de indicações (mock, sem persistência).
- *
- * Regras de negócio:
+ * Sistema de indicações — regras e recompensas (tipos + constantes).
+ * Os dados reais (código, cristais, contagem) vêm do Supabase via
+ * `@/lib/db/social`. Aqui ficam só as regras de negócio:
  * - Uma indicação só CONTA quando o novo jogador mantém a assinatura por 15 dias
  *   (tempo suficiente para a 1ª cobrança no cartão ser concluída).
  * - Bônus exclusivo para JOGADORES NOVOS.
@@ -45,20 +45,6 @@ export const MILESTONES: Milestone[] = [
   },
   { target: 100, rewards: [{ kind: "item", key: "mystery", label: "Prêmio misterioso" }] },
 ];
-
-/** Estado de indicações do usuário (mock). */
-export const referralStats = {
-  inviteCode: "EDU7F3K",
-  inviteUrl: "https://lvl2do.app/r/EDU7F3K",
-  /** convidados CONFIRMADOS (houve cobrança no cartão). */
-  totalInvited: 18,
-  /** convidados aguardando os 15 dias (ainda não contam). */
-  pending: 3,
-  /** cristais de energia acumulados. */
-  crystals: 240,
-  /** indicações confirmadas na temporada atual. */
-  referralsThisSeason: 32,
-};
 
 export interface Season {
   number: number;

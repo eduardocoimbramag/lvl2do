@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Search, UserPlus, UserX } from "lucide-react";
+import { X, Search, UserPlus, UserX, Loader2 } from "lucide-react";
 import { CharacterAvatar } from "./CharacterAvatar";
 import { CountryFlag } from "./CountryFlag";
 import type { Friend } from "@/data/social";
@@ -10,22 +10,73 @@ import type { Friend } from "@/data/social";
 interface AddFriendModalProps {
   open: boolean;
   onClose: () => void;
-  /** candidatos disponíveis (sugeridos que ainda não são amigos). */
-  candidates: Friend[];
-  onAdd: (friend: Friend) => void;
+  /** busca jogadores por nickname (ou "Nick#TAG"). */
+  search: (q: string) => Promise<Friend[]>;
+  /** adiciona o jogador (persiste). */
+  onAdd: (friend: Friend) => Promise<void> | void;
+  /** ids a ocultar dos resultados (você + amigos atuais). */
+  excludeIds: string[];
 }
 
-/** Modal de busca e adição de amigos. */
-export function AddFriendModal({ open, onClose, candidates, onAdd }: AddFriendModalProps) {
+/** Modal de busca e adição de amigos (busca real no banco). */
+export function AddFriendModal({ open, onClose, search, onAdd, excludeIds }: AddFriendModalProps) {
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Friend[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return candidates;
-    return candidates.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.username.toLowerCase().includes(q),
-    );
-  }, [candidates, query]);
+  // limpa ao fechar
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+      setResults([]);
+    }
+  }, [open]);
+
+  // busca com debounce
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    let active = true;
+    const t = setTimeout(() => {
+      search(q)
+        .then((rows) => {
+          if (active) setResults(rows);
+        })
+        .catch((e) => {
+          console.error("Erro na busca de jogadores:", e);
+          if (active) setResults([]);
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    }, 300);
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, [query, search]);
+
+  const filtered = useMemo(
+    () => results.filter((r) => !excludeIds.includes(r.id)),
+    [results, excludeIds],
+  );
+
+  async function handleAdd(friend: Friend) {
+    setAdding(friend.id);
+    try {
+      await onAdd(friend);
+    } catch (e) {
+      console.error("Erro ao adicionar amigo:", e);
+    } finally {
+      setAdding(null);
+    }
+  }
 
   return (
     <AnimatePresence>
@@ -75,14 +126,19 @@ export function AddFriendModal({ open, onClose, candidates, onAdd }: AddFriendMo
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar por nome ou @usuário"
+                placeholder="Buscar por nickname ou Nick#TAG"
                 className="w-full rounded-xl border border-white/10 bg-ink py-2.5 pl-10 pr-4 text-sm text-soft placeholder:text-muted/60 focus:border-brand/50 focus:outline-none focus:ring-2 focus:ring-brand/30"
               />
             </div>
 
-            {/* lista de candidatos */}
+            {/* lista de resultados */}
             <div className="-mr-2 min-h-0 flex-1 space-y-2 overflow-y-auto pr-2">
-              {filtered.length > 0 ? (
+              {loading ? (
+                <div className="flex flex-col items-center gap-2 py-10 text-center">
+                  <Loader2 size={24} className="animate-spin text-brand-light" />
+                  <p className="text-sm text-muted">Buscando…</p>
+                </div>
+              ) : filtered.length > 0 ? (
                 filtered.map((c) => (
                   <div
                     key={c.id}
@@ -92,17 +148,23 @@ export function AddFriendModal({ open, onClose, candidates, onAdd }: AddFriendMo
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-soft">{c.name}</p>
                       <p className="truncate text-xs text-muted">
-                        @{c.username} · {c.characterClass}
+                        Nível {c.level} · {c.characterClass}
                       </p>
                     </div>
                     <CountryFlag code={c.country} />
                     <button
                       type="button"
-                      onClick={() => onAdd(c)}
+                      onClick={() => handleAdd(c)}
+                      disabled={adding === c.id}
                       aria-label={`Adicionar ${c.name}`}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-gradient px-3 py-1.5 text-xs font-semibold text-white shadow-glow-sm transition-all hover:brightness-110"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-gradient px-3 py-1.5 text-xs font-semibold text-white shadow-glow-sm transition-all hover:brightness-110 disabled:opacity-60"
                     >
-                      <UserPlus size={14} /> Adicionar
+                      {adding === c.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <UserPlus size={14} />
+                      )}
+                      Adicionar
                     </button>
                   </div>
                 ))
@@ -110,9 +172,9 @@ export function AddFriendModal({ open, onClose, candidates, onAdd }: AddFriendMo
                 <div className="flex flex-col items-center gap-2 py-10 text-center">
                   <UserX size={28} className="text-muted" />
                   <p className="text-sm text-muted">
-                    {candidates.length === 0
-                      ? "Você já adicionou todas as sugestões."
-                      : "Nenhum usuário encontrado."}
+                    {query.trim().length < 2
+                      ? "Digite ao menos 2 caracteres para buscar."
+                      : "Nenhum jogador encontrado."}
                   </p>
                 </div>
               )}

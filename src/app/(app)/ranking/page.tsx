@@ -1,21 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { useUser } from "@clerk/nextjs";
+import { Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { SegmentedToggle } from "@/components/SegmentedToggle";
 import { RankingPodium } from "@/components/RankingPodium";
 import { RankingRow } from "@/components/RankingRow";
 import { AnimatedGrid } from "@/components/Section";
+import { useAuth } from "@/components/AuthProvider";
 import { useAppStats } from "@/hooks/AppStateProvider";
 import { useProfileIdentity } from "@/hooks/useProfileIdentity";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { isCharacterClass } from "@/data/characterClasses";
-import { userProfile } from "@/data/mockStats";
+import { getTopProfiles, getFriends } from "@/lib/db/social";
 import {
-  GLOBAL_PLAYERS,
-  MOCK_FRIENDS,
   xpForPeriod,
   type Player,
   type RankingPeriod,
@@ -24,45 +23,73 @@ import {
 
 const SCOPES = ["Global", "Amigos"] as const satisfies readonly RankingScope[];
 const PERIODS = ["Todos os tempos", "Anual"] as const satisfies readonly RankingPeriod[];
-const YOU_ID = "you";
 
 /**
- * Ranking (mock): Global / Amigos × Todos os tempos / Anual.
- * O usuário atual é inserido no ranking a partir do estado real (nível/XP/classe).
+ * Ranking real (Supabase): Global / Amigos × Todos os tempos / Anual.
+ * "Global" lê os perfis públicos ordenados; "Amigos" lê os amigos do usuário.
+ * O usuário atual entra com o estado ao vivo (XP/nível/streak/classe).
  */
 export default function RankingPage() {
   const [scope, setScope] = useState<RankingScope>("Global");
   const [period, setPeriod] = useState<RankingPeriod>("Todos os tempos");
+  const [pool, setPool] = useState<Player[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const { stats, progress } = useAppStats();
+  const { user, profile } = useAuth();
+  const { stats, progress, streak } = useAppStats();
   const { characterClass } = useCharacterClass();
   const { displayName, nickname } = useProfileIdentity();
-  const { user } = useUser();
 
-  // jogador "você" derivado do estado real do app
+  // jogador "você", derivado do estado real (ao vivo) do app
   const you: Player = useMemo(
     () => ({
-      id: YOU_ID,
-      name: displayName ?? userProfile.name,
-      username: nickname ? nickname.toLowerCase().replace(/\s+/g, "") : user?.username || "voce",
+      id: user?.id ?? "you",
+      name: displayName ?? "Você",
+      username: nickname ? nickname.toLowerCase().replace(/\s+/g, "") : "voce",
       level: progress.level,
-      streak: userProfile.streak,
+      streak,
       characterClass: isCharacterClass(characterClass) ? characterClass : "Guerreiro",
-      country: "br",
+      country: profile?.country ?? "br",
       totalXp: stats.totalXp,
-      yearXp: stats.totalXp,
+      yearXp: profile?.year_xp ?? stats.totalXp,
     }),
-    [displayName, nickname, user, progress.level, characterClass, stats.totalXp],
+    [user, displayName, nickname, progress.level, streak, characterClass, profile, stats.totalXp],
   );
 
+  // carrega o pool conforme escopo/período
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    setLoading(true);
+    const load =
+      scope === "Global"
+        ? getTopProfiles(period === "Anual" ? "year_xp" : "total_xp", 50)
+        : getFriends();
+    load
+      .then((rows) => {
+        if (active) setPool(rows);
+      })
+      .catch((e) => {
+        console.error("Erro ao carregar ranking:", e);
+        if (active) setPool([]);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user, scope, period]);
+
   const ranked = useMemo(() => {
-    const pool = scope === "Global" ? [you, ...GLOBAL_PLAYERS] : [you, ...MOCK_FRIENDS];
-    return [...pool].sort((a, b) => xpForPeriod(b, period) - xpForPeriod(a, period));
-  }, [scope, period, you]);
+    // usa a versão ao vivo de "você" (remove a cópia vinda do banco)
+    const others = pool.filter((p) => p.id !== you.id);
+    return [you, ...others].sort((a, b) => xpForPeriod(b, period) - xpForPeriod(a, period));
+  }, [pool, you, period]);
 
   const top3 = ranked.slice(0, 3);
   const rest = ranked.slice(3);
-  const yourRank = ranked.findIndex((p) => p.id === YOU_ID) + 1;
+  const yourRank = ranked.findIndex((p) => p.id === you.id) + 1;
 
   return (
     <>
@@ -94,7 +121,7 @@ export default function RankingPage() {
           <div>
             <p className="text-sm font-semibold text-soft">Sua posição</p>
             <p className="text-xs text-muted">
-              {scope} · {period} · {ranked.length} jogadores
+              {scope} · {period} · {ranked.length} {ranked.length === 1 ? "jogador" : "jogadores"}
             </p>
           </div>
         </div>
@@ -106,22 +133,31 @@ export default function RankingPage() {
         </div>
       </motion.div>
 
-      {/* pódio top 3 */}
-      <RankingPodium players={top3} xpOf={(p) => xpForPeriod(p, period)} currentUserId={YOU_ID} />
+      {loading && scope === "Amigos" && pool.length === 0 ? (
+        <div className="card-surface flex flex-col items-center gap-3 p-12 text-center">
+          <Loader2 className="animate-spin text-brand-light" size={28} />
+          <p className="text-sm text-muted">Carregando ranking…</p>
+        </div>
+      ) : (
+        <>
+          {/* pódio top 3 */}
+          <RankingPodium players={top3} xpOf={(p) => xpForPeriod(p, period)} currentUserId={you.id} />
 
-      {/* restante */}
-      {rest.length > 0 && (
-        <AnimatedGrid className="card-surface mt-5 divide-y divide-white/[0.06] overflow-hidden p-0">
-          {rest.map((p, i) => (
-            <RankingRow
-              key={p.id}
-              rank={i + 4}
-              player={p}
-              xp={xpForPeriod(p, period)}
-              isCurrentUser={p.id === YOU_ID}
-            />
-          ))}
-        </AnimatedGrid>
+          {/* restante */}
+          {rest.length > 0 && (
+            <AnimatedGrid className="card-surface mt-5 divide-y divide-white/[0.06] overflow-hidden p-0">
+              {rest.map((p, i) => (
+                <RankingRow
+                  key={p.id}
+                  rank={i + 4}
+                  player={p}
+                  xp={xpForPeriod(p, period)}
+                  isCurrentUser={p.id === you.id}
+                />
+              ))}
+            </AnimatedGrid>
+          )}
+        </>
       )}
     </>
   );

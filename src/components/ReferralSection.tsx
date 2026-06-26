@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { motion } from "framer-motion";
 import { Copy, Check, Gift, Clock, Users, Watch, Shirt } from "lucide-react";
 import { CrystalIcon, CapIcon } from "./RewardIcons";
+import { useAuth } from "./AuthProvider";
+import { getReferralSummary, type ReferralSummary } from "@/lib/db/social";
 import {
   MILESTONES,
   SEASON_MAX,
   CRYSTALS_PER_REFERRAL,
   getCurrentSeason,
-  referralStats,
   type RewardToken,
 } from "@/data/referral";
 import { cn } from "@/lib/utils";
@@ -24,8 +25,31 @@ const ITEM_ICON: Record<string, ComponentType<{ size?: number; className?: strin
 /**
  * Bloco compacto de indicações exibido no Perfil (entre os stats e o
  * desempenho por categoria): convite, cristais e metas da temporada.
+ * Dados reais: código/cristais do profile + contagem de indicações.
  */
 export function ReferralSection() {
+  const { profile } = useAuth();
+  const [summary, setSummary] = useState<ReferralSummary>({ total: 0, pending: 0, thisSeason: 0 });
+
+  useEffect(() => {
+    if (!profile) return;
+    let active = true;
+    getReferralSummary()
+      .then((s) => {
+        if (active) setSummary(s);
+      })
+      .catch((e) => console.error("Erro ao carregar indicações:", e));
+    return () => {
+      active = false;
+    };
+  }, [profile]);
+
+  const code = profile?.referral_code ?? null;
+  const inviteUrl = useMemo(() => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://lvl2do.app";
+    return code ? `${origin}/register?ref=${code}` : "";
+  }, [code]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -33,21 +57,30 @@ export function ReferralSection() {
       viewport={{ once: true }}
       className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
     >
-      <InviteCard />
-      <CrystalsCard />
-      <SeasonCard className="sm:col-span-2 lg:col-span-2" />
+      <InviteCard inviteUrl={inviteUrl} total={summary.total} pending={summary.pending} />
+      <CrystalsCard crystals={profile?.crystals ?? 0} />
+      <SeasonCard referralsThisSeason={summary.thisSeason} className="sm:col-span-2 lg:col-span-2" />
     </motion.div>
   );
 }
 
 /* ----------------------------- Convite ----------------------------------- */
 
-function InviteCard() {
+function InviteCard({
+  inviteUrl,
+  total,
+  pending,
+}: {
+  inviteUrl: string;
+  total: number;
+  pending: number;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
+    if (!inviteUrl) return;
     try {
-      await navigator.clipboard.writeText(referralStats.inviteUrl);
+      await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -63,14 +96,15 @@ function InviteCard() {
 
       <div className="mt-2.5 flex items-center gap-2">
         <span className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-ink px-2.5 py-1.5 text-xs text-soft">
-          {referralStats.inviteUrl}
+          {inviteUrl || "Gerando link…"}
         </span>
         <button
           type="button"
           onClick={copy}
+          disabled={!inviteUrl}
           aria-label="Copiar link de convite"
           className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-50",
             copied
               ? "bg-success/15 text-success"
               : "bg-brand/15 text-brand-light hover:bg-brand/25",
@@ -81,9 +115,9 @@ function InviteCard() {
       </div>
 
       <p className="mt-auto pt-2.5 text-[11px] text-muted">
-        <span className="font-semibold text-soft">{referralStats.totalInvited}</span> convidados
+        <span className="font-semibold text-soft">{total}</span> convidados
         {" · "}
-        <span className="font-semibold text-soft">{referralStats.pending}</span> aguardando
+        <span className="font-semibold text-soft">{pending}</span> aguardando
       </p>
     </div>
   );
@@ -91,7 +125,7 @@ function InviteCard() {
 
 /* ----------------------------- Cristais ---------------------------------- */
 
-function CrystalsCard() {
+function CrystalsCard({ crystals }: { crystals: number }) {
   return (
     <div className="card-surface flex flex-col justify-center p-4">
       <p className="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
@@ -100,7 +134,7 @@ function CrystalsCard() {
       <div className="mt-1.5 flex items-center gap-2">
         <CrystalIcon size={26} />
         <span className="font-display text-2xl font-bold tabular-nums text-soft">
-          {referralStats.crystals.toLocaleString("pt-BR")}
+          {crystals.toLocaleString("pt-BR")}
         </span>
       </div>
       <p className="mt-1 text-[11px] text-muted">+{CRYSTALS_PER_REFERRAL} por indicação confirmada</p>
@@ -110,9 +144,14 @@ function CrystalsCard() {
 
 /* -------------------------- Metas da temporada --------------------------- */
 
-function SeasonCard({ className }: { className?: string }) {
+function SeasonCard({
+  referralsThisSeason,
+  className,
+}: {
+  referralsThisSeason: number;
+  className?: string;
+}) {
   const season = getCurrentSeason();
-  const { referralsThisSeason } = referralStats;
   const pct = Math.min(100, (referralsThisSeason / SEASON_MAX) * 100);
 
   return (

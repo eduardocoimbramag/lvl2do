@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ArrowRight } from "lucide-react";
@@ -9,25 +9,44 @@ import { ProductCard } from "@/components/ProductCard";
 import { RedeemModal } from "@/components/RedeemModal";
 import { CrystalIcon } from "@/components/RewardIcons";
 import { AnimatedGrid } from "@/components/Section";
+import { useAuth } from "@/components/AuthProvider";
+import { redeemProduct } from "@/lib/db/social";
 import { STORE_PRODUCTS, type Product } from "@/data/store";
-import { referralStats } from "@/data/referral";
 
 /**
- * Loja (mock): troca de cristais por produtos físicos.
- * O saldo é local (parte de `referralStats.crystals`); a troca apenas debita
- * em memória — integrar com backend/pagamento depois.
+ * Loja (real): troca de cristais por produtos físicos. O saldo vem do profile
+ * (`crystals`) e a troca debita atomicamente no banco via RPC `redeem_product`.
  */
 export default function StorePage() {
-  const [crystals, setCrystals] = useState(referralStats.crystals);
+  const { profile, refreshProfile } = useAuth();
+  const [crystals, setCrystals] = useState(profile?.crystals ?? 0);
   const [redeeming, setRedeeming] = useState<Product | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  function confirmRedeem() {
+  // mantém o saldo em sincronia com o profile (carrega/atualiza assíncrono)
+  useEffect(() => {
+    setCrystals(profile?.crystals ?? 0);
+  }, [profile?.crystals]);
+
+  async function confirmRedeem() {
     if (!redeeming) return;
-    setCrystals((c) => c - redeeming.cost);
-    setToast(`Resgatado! ${redeeming.name} está a caminho.`);
+    const product = redeeming;
     setRedeeming(null);
-    window.setTimeout(() => setToast(null), 3200);
+    try {
+      const newBalance = await redeemProduct({
+        productId: product.id,
+        productName: product.name,
+        cost: product.cost,
+      });
+      setCrystals(newBalance);
+      setToast(`Resgatado! ${product.name} está a caminho.`);
+      refreshProfile();
+    } catch (e) {
+      console.error("Erro ao resgatar:", e);
+      setToast("Não foi possível resgatar. Verifique seu saldo de cristais.");
+    } finally {
+      window.setTimeout(() => setToast(null), 3200);
+    }
   }
 
   return (

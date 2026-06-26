@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trophy, TrendingDown, Zap, AlertTriangle, Undo2 } from "lucide-react";
+import { Trophy, Zap, AlertTriangle, Undo2 } from "lucide-react";
 import type { StatsFeedback } from "@/hooks/useUserStats";
 import { cn } from "@/lib/utils";
 
@@ -16,9 +16,8 @@ interface XpToastProps {
 /**
  * Toast unificado de progressão. Mostra:
  * - ganho de XP ("+50 XP"), com avisos de limite diário;
- * - perda por inatividade ("-400 XP", dias sem missões);
+ * - reversão de XP (missão desfeita);
  * - level up / level down.
- * Substitui o antigo "LevelUpToast" (que era apenas demonstrativo).
  */
 export function XpToast({ feedback, onDismiss, duration = 3200 }: XpToastProps) {
   useEffect(() => {
@@ -81,21 +80,6 @@ function buildView(fb: StatsFeedback): {
       icon: Trophy,
       iconBg: "bg-brand-gradient",
       celebrate: true,
-    };
-  }
-
-  if (fb.kind === "loss") {
-    const days = fb.inactiveDays ?? 0;
-    const dayLabel = days === 1 ? "1 dia" : `${days} dias`;
-    return {
-      title: `${fb.xp} XP por inatividade`,
-      subtitle:
-        fb.levelDelta < 0
-          ? `Você desceu para o Nível ${fb.level} · ${dayLabel} sem missões`
-          : `Você ficou ${dayLabel} sem concluir missões`,
-      icon: TrendingDown,
-      iconBg: "bg-rose-500/80",
-      celebrate: false,
     };
   }
 

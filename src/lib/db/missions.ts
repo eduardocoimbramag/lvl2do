@@ -93,3 +93,25 @@ export async function deleteMission(missionId: string) {
     throw error;
   }
 }
+
+export async function updateMissionSchedule(
+  missionId: string,
+  scheduleType: "today" | "weekly" | "dates",
+  scheduleWeekdays: number[],
+  scheduleDates: string[],
+) {
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("missions")
+    .update({
+      schedule_type: scheduleType,
+      schedule_weekdays: scheduleWeekdays,
+      schedule_dates: scheduleDates,
+    })
+    .eq("id", missionId);
+
+  if (error) {
+    throw error;
+  }
+}

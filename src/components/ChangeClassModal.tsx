@@ -16,7 +16,7 @@ interface ChangeClassModalProps {
 /**
  * Modal de troca de classe (a partir do Perfil). Reaproveita os cards da tela
  * de onboarding via ClassSelectGrid, com a classe atual já destacada.
- * Ao confirmar, persiste no Clerk (unsafeMetadata) e fecha.
+ * Ao confirmar, persiste no profile (Supabase) e fecha.
  */
 export function ChangeClassModal({ open, onClose }: ChangeClassModalProps) {
   const { characterClass, setCharacterClass } = useCharacterClass();

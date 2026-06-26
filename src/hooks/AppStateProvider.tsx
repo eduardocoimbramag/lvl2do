@@ -1,51 +1,103 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import { useAuth } from "@/components/AuthProvider";
+import { updateMyProfile } from "@/lib/db/profiles";
+import { logXpEvent } from "@/lib/db/xpEvents";
 import { useUserStats } from "./useUserStats";
 import { useMissions } from "./useMissions";
+import { useStreak } from "./useStreak";
 import { useAlarms } from "./useAlarms";
 import { useNotifications } from "./useNotifications";
 
 /**
- * Estado global do app (missões + progressão de XP), em uma ÚNICA instância
- * compartilhada por todas as páginas internas.
- *
- * Por que Context: antes, cada página chamava `useUserStats`/`useMissions`
- * separadamente, criando estados independentes. Concluir uma missão numa
- * página não refletia em outra (e a aba de Missões nem creditava XP). Com um
- * provider único, concluir uma missão em qualquer lugar credita o mesmo XP e
- * atualiza todas as telas em tempo real.
+ * Estado global do app (missões + progressão de XP) em uma única instância.
+ * O XP/level e as missões são persistidos no Supabase (por usuário); o streak
+ * vem do profile. Concluir uma missão credita XP e atualiza todas as telas.
  */
-/** API de alarmes global + atalho para desativar (usado pelo scheduler). */
 type AlarmsApi = ReturnType<typeof useAlarms> & {
-  /** desativa um alarme por id (idempotente) — atalho de setEnabled(id, false). */
+  /** desativa um alarme por id (idempotente). */
   toggleEnabledOff: (id: string) => void;
 };
 
 type AppState = ReturnType<typeof useUserStats> & {
-  /** API de missões (lista de hoje, todas, toggle, fail, add, etc.). */
+  /** streak atual (dias consecutivos), vindo do profile. */
+  streak: number;
+  /** maior streak já alcançado, vindo do profile. */
+  bestStreak: number;
   missionsApi: ReturnType<typeof useMissions>;
-  /** API de alarmes (lista, add, update, remove, enable). */
   alarmsApi: AlarmsApi;
-  /** API de notificações (compartilhada com a sineta, em tempo real). */
   notificationsApi: ReturnType<typeof useNotifications>;
 };
 
 const AppStateContext = createContext<AppState | null>(null);
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  // Uma única instância de progressão (XP/level) para todo o app.
-  const userStats = useUserStats();
+  const { user, profile } = useAuth();
+  const userId = user?.id ?? null;
 
-  // Uma única instância de missões; concluir credita XP e desfazer devolve o
-  // XP creditado — tudo no mesmo userStats (estado unificado).
-  const missionsApi = useMissions({
-    onMissionCompleted: (xp) => userStats.completeMission(xp).earnedXp,
-    onMissionReverted: (xp) => userStats.revertMission(xp),
+  // persiste XP/level + contador diário no profile (best-effort, não bloqueia a UI)
+  const persistStats = useCallback(
+    (totalXp: number, level: number, dailyXp: number, dailyXpDate: string) => {
+      updateMyProfile({
+        total_xp: totalXp,
+        level,
+        daily_xp: dailyXp,
+        daily_xp_date: dailyXpDate,
+      }).catch(() => {});
+    },
+    [],
+  );
+
+  // progressão (XP/level + diário) semeada do banco — conta nova começa em 0.
+  const userStats = useUserStats({
+    seedTotalXp: profile?.total_xp ?? 0,
+    seedDailyXp: profile?.daily_xp ?? 0,
+    seedDailyXpDate: profile?.daily_xp_date ?? null,
+    persistStats,
   });
 
-  // Alarmes + notificações em instância única (página e scheduler/sineta
-  // compartilham o mesmo estado, refletindo em tempo real).
+  // streak (dias consecutivos) semeado do profile e persistido ao concluir.
+  const persistStreak = useCallback(
+    (current: number, best: number, lastCompletedAtISO: string) => {
+      updateMyProfile({
+        current_streak: current,
+        best_streak: best,
+        last_mission_completed_at: lastCompletedAtISO,
+      }).catch(() => {});
+    },
+    [],
+  );
+  const streakApi = useStreak({
+    seedCurrent: profile?.current_streak ?? 0,
+    seedBest: profile?.best_streak ?? 0,
+    seedLastCompletedAt: profile?.last_mission_completed_at ?? null,
+    persist: persistStreak,
+  });
+
+  const registerCompletion = streakApi.registerCompletion;
+
+  // missões persistidas no banco; concluir credita XP, avança o streak e
+  // registra um evento de XP (para o histórico de métricas).
+  const missionsApi = useMissions({
+    userId,
+    onMissionCompleted: ({ xp, category, missionId }) => {
+      const earned = userStats.completeMission(xp).earnedXp;
+      registerCompletion();
+      if (userId) {
+        logXpEvent({ userId, kind: "gain", amount: earned, category, missionId }).catch(() => {});
+      }
+      return earned;
+    },
+    onMissionReverted: ({ xp, category, missionId }) => {
+      userStats.revertMission(xp);
+      if (userId) {
+        logXpEvent({ userId, kind: "revert", amount: -xp, category, missionId }).catch(() => {});
+      }
+    },
+  });
+
+  // alarmes + notificações (estado local por enquanto)
   const alarms = useAlarms();
   const notificationsApi = useNotifications();
 
@@ -56,12 +108,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [alarms, toggleEnabledOff],
   );
 
-  const value: AppState = { ...userStats, missionsApi, alarmsApi, notificationsApi };
+  const value: AppState = {
+    ...userStats,
+    streak: streakApi.current,
+    bestStreak: streakApi.best,
+    missionsApi,
+    alarmsApi,
+    notificationsApi,
+  };
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }
 
-/** Acessa o estado de progressão (XP/level/daily/feedback) global. */
+/** Acessa o estado de progressão (XP/level/daily/feedback/streak) global. */
 export function useAppStats(): AppState {
   const ctx = useContext(AppStateContext);
   if (!ctx) {

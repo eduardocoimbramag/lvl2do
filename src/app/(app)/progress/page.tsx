@@ -10,12 +10,9 @@ import { CategoryBadge } from "@/components/CategoryBadge";
 import { AnimatedGrid } from "@/components/Section";
 import { XpAreaChart } from "@/components/charts/XpAreaChart";
 import { MetricsPeriodToggle } from "@/components/MetricsPeriodToggle";
-import {
-  metricsByPeriod,
-  strongestCategory,
-  weakestCategory,
-  type MetricsPeriod,
-} from "@/data/metricsData";
+import { useAppStats, useAppMissions } from "@/hooks/AppStateProvider";
+import { useMetrics } from "@/hooks/useMetrics";
+import { strongestOf, weakestOf, type MetricsPeriod } from "@/data/metricsData";
 
 /** Sufixo do rótulo dos cards conforme o período (ex.: "na semana"). */
 const PERIOD_SUFFIX: Record<MetricsPeriod, string> = {
@@ -27,11 +24,17 @@ const PERIOD_SUFFIX: Record<MetricsPeriod, string> = {
 export default function ProgressPage() {
   const [period, setPeriod] = useState<MetricsPeriod>("Semanal");
 
-  // todos os dados da página derivam do período selecionado
-  const data = metricsByPeriod[period];
-  const strongest = strongestCategory(period);
-  const weakest = weakestCategory(period);
+  // dados reais: XP/missões ao longo do tempo (xp_events) + conclusão por
+  // categoria (snapshot das missões do usuário).
+  const { bestStreak } = useAppStats();
+  const { allMissions } = useAppMissions();
+  const { byPeriod } = useMetrics({ missions: allMissions, bestStreak });
+
+  const data = byPeriod[period];
+  const strongest = strongestOf(data.categories);
+  const weakest = weakestOf(data.categories);
   const suffix = PERIOD_SUFFIX[period];
+  const hasData = data.categories.some((c) => c.completion > 0);
 
   return (
     <>
@@ -58,14 +61,14 @@ export default function ProgressPage() {
         <StatCard
           label="Percentual de conclusão"
           value={`${data.completionRate}%`}
-          hint={`Taxa ${suffix}`}
+          hint="Conclusão geral"
           icon={Percent}
           tone="success"
         />
         <StatCard
           label="Maior streak"
           value={`${data.longestStreak} dias`}
-          hint={`Recorde ${suffix}`}
+          hint="Recorde geral"
           icon={Flame}
         />
       </AnimatedGrid>
@@ -93,7 +96,7 @@ export default function ProgressPage() {
           className="card-surface p-6 lg:col-span-2"
         >
           <h3 className="mb-5 font-display font-semibold text-soft">Progresso por categoria</h3>
-          <div key={period} className="space-y-4">
+          <div className="space-y-4">
             {data.categories.map((c) => (
               <div key={c.category}>
                 <div className="mb-1.5 flex items-center justify-between">
@@ -125,18 +128,25 @@ export default function ProgressPage() {
           <h3 className="font-display font-semibold text-soft">Análise inteligente</h3>
         </div>
         <div className="mt-4 space-y-3">
-          <p className="rounded-xl border border-success/20 bg-success/5 px-4 py-3 text-sm text-muted">
-            No período <span className="font-medium text-soft">{period.toLowerCase()}</span>, sua área
-            mais forte é{" "}
-            <span className="font-medium text-success">{strongest.category}</span>, com{" "}
-            <span className="font-medium text-success">{strongest.completion}%</span> de conclusão.
-          </p>
-          <p className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-muted">
-            Sua área mais fraca é{" "}
-            <span className="font-medium text-brand-light">{weakest.category}</span>, com{" "}
-            <span className="font-medium text-brand-light">{weakest.completion}%</span>. Tente criar
-            pequenas missões nessa categoria para equilibrar sua evolução.
-          </p>
+          {hasData && strongest && weakest ? (
+            <>
+              <p className="rounded-xl border border-success/20 bg-success/5 px-4 py-3 text-sm text-muted">
+                Sua área mais forte é{" "}
+                <span className="font-medium text-success">{strongest.category}</span>, com{" "}
+                <span className="font-medium text-success">{strongest.completion}%</span> de conclusão.
+              </p>
+              <p className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-muted">
+                Sua área mais fraca é{" "}
+                <span className="font-medium text-brand-light">{weakest.category}</span>, com{" "}
+                <span className="font-medium text-brand-light">{weakest.completion}%</span>. Tente criar
+                pequenas missões nessa categoria para equilibrar sua evolução.
+              </p>
+            </>
+          ) : (
+            <p className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-muted">
+              Conclua suas primeiras missões para desbloquear a análise de desempenho por categoria.
+            </p>
+          )}
         </div>
       </motion.div>
     </>

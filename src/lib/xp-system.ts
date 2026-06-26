@@ -61,6 +61,11 @@ function daysBetween(aKey: string, bKey: string): number {
   return Math.round((b - a) / MS_PER_DAY);
 }
 
+/** Diferença em dias inteiros entre duas chaves "YYYY-MM-DD" (bKey - aKey). */
+export function daysBetweenDateKeys(aKey: string, bKey: string): number {
+  return daysBetween(aKey, bKey);
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Progressão de level (por faixas)                                           */
 /* -------------------------------------------------------------------------- */

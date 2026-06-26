@@ -1,29 +1,24 @@
 "use client";
 
 import { useCallback } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth } from "@/components/AuthProvider";
+import { updateMyProfile } from "@/lib/db/profiles";
 import { formatHandle } from "@/data/identity";
 
 /**
- * Lê/grava a identidade do jogador (nickname + hashtag) no Clerk
- * (unsafeMetadata), no mesmo padrão de `useCharacterClass`.
- *
- * - nickname pode repetir entre jogadores;
- * - a hashtag (3 chars) torna o par único.
+ * Identidade do jogador (nickname + hashtag), persistida na tabela `profiles`
+ * do Supabase. O nickname pode repetir; a hashtag (3 chars) torna o par único
+ * (garantido por `unique(nickname, tag)` no banco).
  */
 export function useProfileIdentity() {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { user, profile, loading, refreshProfile } = useAuth();
 
-  const rawNick = user?.unsafeMetadata?.nickname;
-  const rawTag = user?.unsafeMetadata?.tag;
-  const nickname = typeof rawNick === "string" && rawNick.length > 0 ? rawNick : null;
-  const tag = typeof rawTag === "string" && rawTag.length > 0 ? rawTag : null;
-
+  const nickname = profile?.nickname && profile.nickname.length > 0 ? profile.nickname : null;
+  const tag = profile?.tag && profile.tag.length > 0 ? profile.tag : null;
   const hasIdentity = nickname !== null && tag !== null;
 
-  /** Nome usado quando ainda não há nickname (cai para o nome do Clerk). */
-  const fallbackName =
-    user?.fullName || user?.firstName || user?.username || null;
+  /** Nome usado quando ainda não há nickname (nome do cadastro ou e-mail). */
+  const fallbackName = profile?.name || user?.email?.split("@")[0] || null;
 
   /** Nome a exibir no app (nickname tem prioridade). */
   const displayName = nickname ?? fallbackName;
@@ -31,24 +26,18 @@ export function useProfileIdentity() {
   /** Identificador completo "Nick#TAG" (ou null se ainda não cadastrado). */
   const handle = hasIdentity ? formatHandle(nickname!, tag!) : null;
 
-  /** Persiste nickname + hashtag na conta (preserva o resto do metadata). */
+  /** Persiste nickname + hashtag no profile. */
   const setIdentity = useCallback(
     async (nick: string, t: string) => {
-      if (!user) return;
-      await user.update({
-        unsafeMetadata: {
-          ...user.unsafeMetadata,
-          nickname: nick.trim(),
-          tag: t.trim().toUpperCase(),
-        },
-      });
+      await updateMyProfile({ nickname: nick.trim(), tag: t.trim().toUpperCase() });
+      await refreshProfile();
     },
-    [user],
+    [refreshProfile],
   );
 
   return {
-    isLoaded,
-    isSignedIn: !!isSignedIn,
+    isLoaded: !loading,
+    isSignedIn: !!user,
     nickname,
     tag,
     hasIdentity,
