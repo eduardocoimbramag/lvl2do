@@ -7,6 +7,8 @@ import { Category } from "./types";
 
 export const userProfile = {
   name: "Eduardo",
+  /** hashtag de fallback (usada até o cadastro real de identidade). */
+  tag: "A2K",
   title: "Executor em Evolução",
   level: 4,
   xpCurrent: 340,

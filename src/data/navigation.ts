@@ -6,6 +6,7 @@ import {
   TrendingUp,
   Users,
   Trophy,
+  Store,
   User,
   LifeBuoy,
   type LucideIcon,
@@ -28,6 +29,7 @@ export const appNav: NavItem[] = [
   { label: "Métricas/Progresso", href: "/progress", icon: TrendingUp, shortLabel: "Métricas" },
   { label: "Amigos", href: "/friends", icon: Users },
   { label: "Ranking", href: "/ranking", icon: Trophy },
+  { label: "Loja", href: "/store", icon: Store },
   { label: "Perfil", href: "/profile", icon: User },
   { label: "Suporte", href: "/support", icon: LifeBuoy },
 ];

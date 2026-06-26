@@ -31,6 +31,8 @@ export default function ProfilePage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const displayName = identity.displayName ?? userProfile.name;
+  // hashtag real (cadastrada) ou a de fallback do mock
+  const tag = identity.tag ?? userProfile.tag;
 
   // arte do personagem (skin escolhida ou automática pelo nível) para a moldura
   const hasClass = isCharacterClass(characterClass);
@@ -68,9 +70,9 @@ export default function ProfilePage() {
           <div className="flex-1">
             <h2 className="font-display text-2xl font-bold text-soft">
               {displayName}
-              {identity.tag && (
+              {tag && (
                 <span className="ml-1.5 align-middle text-lg font-semibold text-muted">
-                  #{identity.tag}
+                  #{tag}
                 </span>
               )}
             </h2>
