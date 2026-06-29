@@ -4,10 +4,10 @@ App de **produtividade gamificada**: transforme tarefas em missões, ganhe **XP*
 suba de nível, evolua seu personagem, mantenha o **streak** e acompanhe sua evolução com
 dashboards e métricas.
 
-> **Status atual:** front-end completo com **autenticação Clerk integrada** (login, registro,
-> proteção de rotas e onboarding). A camada de dados do app ainda é **mockada** — o banco de
-> dados será integrado depois. A **classe** e a **identidade (nickname + hashtag)** do jogador já
-> são persistidas na conta (Clerk `unsafeMetadata`).
+> **Status atual:** front-end completo com **backend Supabase integrado** — autenticação
+> (e-mail + senha), proteção de rotas, e persistência real por usuário (RLS) de **missões, XP,
+> nível, streak, XP diário, métricas, amigos, ranking, loja e indicações**. Uma conta nova começa
+> **zerada** (0 XP, nível 1, streak 0, sem missões) e evolui conforme o uso.
 
 ---
 
@@ -17,10 +17,9 @@ dashboards e métricas.
 # 1. Instalar dependências
 npm install
 
-# 2. Variáveis de ambiente (Clerk) — crie um .env.local
-#    Pegue as chaves no painel do Clerk (clerk.com)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
-CLERK_SECRET_KEY=sk_...
+# 2. Variáveis de ambiente (Supabase) — crie um .env.local
+NEXT_PUBLIC_SUPABASE_URL=https://<seu-projeto>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<sua-anon/publishable-key>
 
 # 3. Ambiente de desenvolvimento
 npm run dev          # http://localhost:3000
@@ -30,8 +29,20 @@ npm run build
 npm run start
 ```
 
-> ⚠️ As chaves do **Clerk** são **obrigatórias** agora — o middleware protege todas as rotas
-> internas. Sem elas, as páginas autenticadas não carregam.
+### Banco de dados (Supabase)
+
+No **SQL Editor** do Supabase, rode os scripts da pasta [`supabase/`](supabase) **nesta ordem**:
+
+1. `schema.sql` — tabelas base `profiles` e `missions`, RLS, triggers e criação automática de perfil.
+2. `2026-progress-streak.sql` — XP diário persistido (`daily_xp`) + log **`xp_events`** (base das métricas).
+3. `2026-social.sql` — view `public_profiles`, tabelas `friendships` / `redemptions` / `referrals`,
+   colunas `crystals` / `country` / `referral_code` / `year_xp`, RPCs e atribuição de indicação.
+
+> `fix-profiles.sql` existe como reparo idempotente caso a tabela `profiles` tenha sido criada antes
+> das colunas de identidade (nickname/tag).
+
+> ⚠️ As chaves do **Supabase** são **obrigatórias** — o middleware protege as rotas internas e
+> sem o banco migrado as telas sociais/métricas ficam vazias.
 
 ---
 
@@ -40,7 +51,7 @@ npm run start
 - **Next.js 15** (App Router) + **React 19**
 - **TypeScript**
 - **Tailwind CSS** (design tokens da marca em `tailwind.config.ts`)
-- **Clerk** (`@clerk/nextjs`) — autenticação e proteção de rotas
+- **Supabase** — Auth (e-mail/senha), Postgres + **RLS**, `@supabase/ssr` e `@supabase/supabase-js`
 - **Framer Motion** — animações
 - **Lucide React** — ícones
 - **Recharts** — gráfico de XP
@@ -51,34 +62,38 @@ npm run start
 ## ✨ Funcionalidades
 
 - **Missões & XP:** crie missões por categoria (Profissional/Pessoal/Saúde), turno e dificuldade;
-  concluir credita XP em tempo real em todo o app (estado global).
+  concluir credita XP em tempo real e **persiste no banco** (com limite diário de XP).
 - **Personagem & Classes:** escolha entre 5 classes (Guerreiro, Ladrão, Arqueira, Bruxa, Bardo);
   a arte **evolui por faixa de nível** (lv1, 10, 25, 50, 100) e há **skins** trocáveis.
-- **Identidade:** **nickname + hashtag** (`Nick#ABC`) — o nick pode repetir, a hashtag de 3
-  caracteres torna o par único.
-- **Streak:** indicador de dias consecutivos no dashboard (multiplicadores de XP previstos).
+- **Identidade:** **nickname + hashtag** (`Nick#ABC`) — o nick pode repetir; a hashtag de 3
+  caracteres torna o par único (garantido por `unique(nickname, tag)` no banco).
+- **Streak real:** dias consecutivos com ao menos uma missão concluída — avança 1×/dia, persiste
+  em `profiles` e alimenta o indicador do dashboard.
+- **Métricas/Progresso:** XP por dia/semana/mês, missões concluídas e desempenho por categoria,
+  derivados do log real `xp_events`.
 - **Modo Focus:** timer estilo Pomodoro.
-- **Alarmes:** alarmes com som e dias da semana, com disparo/notificação.
-- **Métricas/Progresso:** gráfico de XP, calendário e desempenho por categoria/período.
-- **Amigos:** adicionar, remover e ver perfil (nível, streak, classe, país).
-- **Ranking:** Global e de Amigos, com períodos "Todos os tempos" e "Anual" + bandeira do país.
-- **Indicações & Cristais:** convide novos jogadores → ganhe **cristais de energia**; metas por
-  temporada (6 meses) — bloco compacto dentro do **Perfil**.
-- **Loja:** troque cristais por **produtos físicos** (12 itens).
-- **Suporte:** abertura e acompanhamento de tickets.
-- **Notificações:** central no app (level up, alertas, etc.).
+- **Alarmes:** alarmes com som e dias da semana, com disparo/notificação (estado local).
+- **Amigos:** busca por `Nick#TAG`, adicionar (amizade mútua), remover e ver perfil.
+- **Ranking:** Global e de Amigos × "Todos os tempos" (`total_xp`) e "Anual" (`year_xp`); layout
+  50/50 (pódio + classificação rolável com a **sua posição fixa**) e bandeira do país.
+- **Indicações & Cristais:** link `…/register?ref=CÓDIGO` real; novos cadastros via convite creditam
+  **+15 cristais** ao indicador. Metas por temporada (6 meses) — bloco compacto no **Perfil**.
+- **Loja:** troque cristais por **produtos físicos** (12 itens) — débito atômico via RPC.
+- **Suporte:** abertura e acompanhamento de tickets (estado local).
+- **Notificações:** central no app (level up, alertas, etc. — estado local).
 
 ---
 
-## 🔐 Autenticação & proteção de rotas (Clerk)
+## 🔐 Autenticação & proteção de rotas (Supabase)
 
-- **Provider:** `<ClerkProvider>` em `src/app/layout.tsx`.
-- **Middleware:** `src/middleware.ts` — rotas **públicas**: `/`, `/login`, `/register`. Todo o
-  resto exige login.
-- **Login/Registro:** telas do Clerk em `src/app/login/[[...rest]]` e `src/app/register/[[...rest]]`.
+- **Provider:** `<AuthProvider>` (`src/components/AuthProvider.tsx`) expõe `user`, `profile`,
+  `loading`, `refreshProfile`, `signOut` via `onAuthStateChange`.
+- **Middleware:** `src/middleware.ts` → `updateSession` (`src/lib/supabase/middleware.ts`) renova a
+  sessão e protege rotas. **Públicas:** `/`, `/login`, `/register`, `/auth`.
+- **Login/Registro:** telas próprias em `src/app/login` e `src/app/register` (e-mail + senha). O
+  registro captura `?ref=CÓDIGO` para indicações.
 - **Onboarding (`/onboarding`):** no **primeiro login**, o jogador define **nickname + hashtag** e
-  **escolhe a classe** (salvos no `unsafeMetadata`). O `ClassGuard` redireciona para cá quem ainda
-  não tem classe.
+  **escolhe a classe** (salvos em `profiles`). O `ClassGuard` redireciona para cá quem ainda não tem classe.
 
 ---
 
@@ -87,73 +102,82 @@ npm run start
 ```
 src/
 ├─ app/
-│  ├─ layout.tsx              # <ClerkProvider> + fonts (Sora/Manrope)
+│  ├─ layout.tsx              # <AuthProvider> + fonts (Sora/Manrope)
 │  ├─ page.tsx                # / — Landing (Hero, Problema×Sistema, Classes, Planos, FAQ, Footer)
-│  ├─ login / register        # telas do Clerk (rotas catch-all)
+│  ├─ login / register        # telas de e-mail + senha (Supabase Auth)
+│  ├─ auth/callback           # troca de código de confirmação de e-mail
 │  ├─ onboarding/page.tsx     # 1º login: nickname+hashtag + classe
 │  └─ (app)/                  # rotas internas (sidebar + bottom nav), protegidas
 │     ├─ layout.tsx           # AppStateProvider + ClassGuard + Sidebar/BottomNav
-│     ├─ dashboard            # /dashboard
-│     ├─ missions             # /missions
-│     ├─ alarms               # /alarms
-│     ├─ focus                # /focus
-│     ├─ progress             # /progress (métricas)
-│     ├─ friends              # /friends
-│     ├─ ranking              # /ranking
-│     ├─ store                # /store (loja de cristais)
-│     ├─ profile              # /profile (inclui indicações + editar identidade)
-│     └─ support              # /support
+│     ├─ dashboard, missions, alarms, focus, progress
+│     ├─ friends, ranking, store
+│     ├─ profile              # inclui indicações + editar identidade
+│     └─ support
 │
 ├─ components/                # ~60 componentes de UI (cards, modais, charts, etc.)
-├─ data/                      # tipos + dados mock + conteúdo
-│  ├─ types.ts, mockMissions.ts, mockStats.ts, metricsData.ts
+│  └─ AuthProvider.tsx        # contexto de sessão/perfil (Supabase)
+│
+├─ data/                      # tipos + regras + conteúdo
+│  ├─ types.ts, mockStats.ts (apenas fallbacks de nome/tag)
 │  ├─ characterClasses.ts     # classes, skins e arte por nível
-│  ├─ identity.ts             # validação/unicidade de nickname#hashtag (mock)
-│  ├─ social.ts               # amigos + ranking (mock) + países
-│  ├─ referral.ts             # indicações, cristais e temporada
-│  ├─ store.ts                # produtos da loja
-│  ├─ alarms.ts, focus.ts, landingContent.ts, navigation.ts
+│  ├─ identity.ts             # validação de formato de nickname#hashtag
+│  ├─ social.ts               # tipos de jogador/ranking + países
+│  ├─ referral.ts             # regras de indicação, cristais e temporada
+│  ├─ store.ts, metricsData.ts (tipos), alarms.ts, focus.ts, landingContent.ts, navigation.ts
 │
 ├─ hooks/
-│  ├─ AppStateProvider.tsx    # estado global (XP/missões/alarmes/notificações)
-│  ├─ useUserStats.ts, useMissions.ts
+│  ├─ AppStateProvider.tsx    # estado global (XP/missões/streak/alarmes/notificações)
+│  ├─ useUserStats.ts, useMissions.ts, useStreak.ts, useMetrics.ts
 │  ├─ useCharacterClass.ts, useCharacterSkin.ts, useProfileIdentity.ts
 │  ├─ useFocusTimer.ts, useAlarms.ts, useAlarmScheduler.ts, useAlarmSound.ts
 │  └─ useNotifications.ts, useTickets.ts
 │
-└─ lib/
-   ├─ xp-system.ts            # cálculo de XP/nível
-   ├─ utils.ts                # cn(), clamp(), toPercent()
-   ├─ animations.ts           # variants de Framer Motion
-   └─ alarm-sounds.ts
+├─ lib/
+│  ├─ supabase/               # client.ts, server.ts, middleware.ts
+│  ├─ db/                     # profiles.ts, missions.ts, xpEvents.ts, social.ts
+│  ├─ xp-system.ts            # cálculo de XP/nível (funções puras)
+│  ├─ streak.ts               # cálculo de streak (funções puras)
+│  ├─ utils.ts, animations.ts, alarm-sounds.ts
+│
+└─ types/database.ts          # tipos das linhas do banco (ProfileRow, MissionRow, …)
 ```
 
 A arte dos personagens fica em `public/characters` como `<slug>lv<faixa>.webp`.
 
 ---
 
-## 🗄️ Onde os dados ainda são mock (integrar banco depois)
+## 🗄️ Modelo de dados (Supabase)
 
-A leitura/escrita do app passa por uma camada mock fácil de substituir:
+- **`profiles`** (1:1 com `auth.users`): identidade (nickname/tag), classe/skin, `total_xp`,
+  `level`, `daily_xp`, streak, `country`, `crystals`, `referral_code`, `year_xp`. `unique(nickname, tag)`.
+- **`missions`**: missões por usuário (categoria, dificuldade, turno, agendamento, status, XP).
+- **`xp_events`**: log append-only de ganhos/reversões de XP (base das métricas + `year_xp`).
+- **`friendships`**: amizade mútua (2 linhas por par); criada/removida via RPC `add_friend`/`remove_friend`.
+- **`redemptions`**: resgates da loja; débito atômico via RPC `redeem_product`.
+- **`referrals`**: indicações; `handle_new_user` atribui o convite e credita cristais.
+- **view `public_profiles`**: colunas públicas (ranking/amigos) — `crystals`/`referral_code` ficam privados.
 
-- **Missões/Stats:** `src/data/mockMissions.ts`, `src/data/mockStats.ts`, `src/data/metricsData.ts`.
-- **Estado de XP/missões:** `src/hooks/useUserStats.ts` + `useMissions.ts` (via `AppStateProvider`).
-- **Social / Ranking / Indicações / Loja:** `src/data/social.ts`, `referral.ts`, `store.ts`
-  (saldo de cristais, amigos, ranking e produtos são mock — sem persistência real).
-- **Identidade/Classe:** já persistidas no Clerk (`unsafeMetadata`); a **unicidade** do
-  `nickname#hashtag` é validada contra um conjunto mock (`identity.ts`) até existir backend.
+Tudo protegido por **RLS** (`auth.uid()`); leituras sociais passam pela view; operações sensíveis
+(amizade, resgate) por funções `security definer`.
+
+---
+
+## ⏳ Pontos ainda simplificados
+
+- **Indicações:** a confirmação acontece no cadastro (sem o gate real de 15 dias / cobrança).
+- **País:** padrão `'br'` para todos (coluna existe, mas ainda sem seletor em "Editar perfil").
+- **Alarmes, notificações, tickets:** estado local (ainda não persistidos no banco).
+- **Conteúdo da landing** é estático.
 
 ---
 
 ## 🧭 Próximos passos técnicos
 
-1. **Banco de dados** (Prisma/Supabase): `users`, `missions`, `xp_events`, `friends`, `referrals`,
-   `crystals`, `orders`.
-2. Persistir missões, XP, streak, cristais e indicações (hoje em memória/mock).
-3. Cálculo real de **streak** + **multiplicadores** e validação de **unicidade** de identidade no servidor.
-4. **Pagamentos/assinatura** (Stripe) e confirmação das indicações (cobrança após 15 dias).
-5. Notificações push reais e telemetria.
-6. Testes (unit/E2E).
+1. Confirmação real das indicações (cobrança/retenção de 15 dias) + **pagamentos** (Stripe).
+2. Seletor de **país** e persistência de **alarmes/notificações/tickets**.
+3. Multiplicadores de XP por faixa de streak (7 dias = 1,2× · 30 dias = 1,5×).
+4. Notificações push reais e telemetria.
+5. Testes (unit/E2E).
 
 ---
 

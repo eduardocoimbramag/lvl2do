@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { SegmentedToggle } from "@/components/SegmentedToggle";
 import { RankingPodium } from "@/components/RankingPodium";
 import { RankingRow } from "@/components/RankingRow";
-import { AnimatedGrid } from "@/components/Section";
 import { useAuth } from "@/components/AuthProvider";
 import { useAppStats } from "@/hooks/AppStateProvider";
 import { useProfileIdentity } from "@/hooks/useProfileIdentity";
@@ -88,7 +86,6 @@ export default function RankingPage() {
   }, [pool, you, period]);
 
   const top3 = ranked.slice(0, 3);
-  const rest = ranked.slice(3);
   const yourRank = ranked.findIndex((p) => p.id === you.id) + 1;
 
   return (
@@ -106,58 +103,49 @@ export default function RankingPage() {
         />
       </div>
 
-      {/* sua posição */}
-      <motion.div
-        key={`${scope}-${period}`}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="card-surface mb-5 flex items-center justify-between gap-4 border-brand/30 p-4 shadow-glow-sm"
-      >
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-gradient font-display text-lg font-bold tabular-nums text-white shadow-glow-sm">
-            {yourRank}
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-soft">Sua posição</p>
-            <p className="text-xs text-muted">
-              {scope} · {period} · {ranked.length} {ranked.length === 1 ? "jogador" : "jogadores"}
-            </p>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="font-display text-xl font-bold tabular-nums text-soft">
-            {xpForPeriod(you, period).toLocaleString("pt-BR")}
-          </p>
-          <p className="text-xs text-muted">XP</p>
-        </div>
-      </motion.div>
-
       {loading && scope === "Amigos" && pool.length === 0 ? (
         <div className="card-surface flex flex-col items-center gap-3 p-12 text-center">
           <Loader2 className="animate-spin text-brand-light" size={28} />
           <p className="text-sm text-muted">Carregando ranking…</p>
         </div>
       ) : (
-        <>
-          {/* pódio top 3 */}
+        <div className="grid items-start gap-5 lg:grid-cols-2">
+          {/* esquerda: pódio */}
           <RankingPodium players={top3} xpOf={(p) => xpForPeriod(p, period)} currentUserId={you.id} />
 
-          {/* restante */}
-          {rest.length > 0 && (
-            <AnimatedGrid className="card-surface mt-5 divide-y divide-white/[0.06] overflow-hidden p-0">
-              {rest.map((p, i) => (
+          {/* direita: classificação rolável com a sua posição fixa no rodapé */}
+          <div className="card-surface flex flex-col overflow-hidden p-0">
+            <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+              <h3 className="font-display text-sm font-semibold text-soft">Classificação</h3>
+              <span className="text-xs text-muted">
+                {scope} · {period} · {ranked.length} {ranked.length === 1 ? "jogador" : "jogadores"}
+              </span>
+            </div>
+
+            {/* lista rolável (os 10 primeiros aparecem; role para ver mais) */}
+            <div className="max-h-[36rem] min-h-0 flex-1 divide-y divide-white/[0.06] overflow-y-auto">
+              {ranked.map((p, i) => (
                 <RankingRow
                   key={p.id}
-                  rank={i + 4}
+                  rank={i + 1}
                   player={p}
                   xp={xpForPeriod(p, period)}
                   isCurrentUser={p.id === you.id}
                 />
               ))}
-            </AnimatedGrid>
-          )}
-        </>
+            </div>
+
+            {/* sua posição — sempre visível, ancorada no rodapé */}
+            <div className="border-t border-brand/25 bg-brand/[0.06]">
+              <RankingRow
+                rank={yourRank}
+                player={you}
+                xp={xpForPeriod(you, period)}
+                isCurrentUser
+              />
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
