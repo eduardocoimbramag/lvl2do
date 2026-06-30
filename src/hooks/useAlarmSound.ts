@@ -1,97 +1,92 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { getSound } from "@/lib/alarm-sounds";
+import { useCallback, useEffect, useRef } from "react";
 
 /**
- * Player de som dos alarmes (preview + disparo). Reutiliza um único elemento
- * <audio> para o preview, parando o som anterior ao tocar outro. Trata o caso
- * de o arquivo .mp3 ainda não existir em /public/sounds (sinaliza erro para a
- * UI avisar, sem quebrar).
+ * Toque de sino sintetizado via Web Audio (sem depender de arquivos de áudio).
+ *
+ * Um único som — "Sino" — usado tanto na pré-escuta quanto no disparo de
+ * alarmes e na conclusão do Modo Foco. Como é gerado em código, sempre funciona
+ * em qualquer máquina (não exibe "arquivo indisponível").
  */
 export function useAlarmSound() {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  // id do som tocando agora no preview (para destacar na UI) ou null
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  // ids de sons cujo arquivo falhou ao carregar (avisar "indisponível")
-  const [missing, setMissing] = useState<Set<string>>(new Set());
+  const ctxRef = useRef<AudioContext | null>(null);
 
-  // cria o elemento de áudio uma vez (no cliente)
+  /** Garante (e retoma) um AudioContext — criado sob gesto do usuário. */
+  const getCtx = useCallback((): AudioContext | null => {
+    if (typeof window === "undefined") return null;
+    const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AC) return null;
+    if (!ctxRef.current) ctxRef.current = new AC();
+    if (ctxRef.current.state === "suspended") void ctxRef.current.resume();
+    return ctxRef.current;
+  }, []);
+
+  /**
+   * Toca o sino. `repeats` toca o "ding" algumas vezes em sequência (usado no
+   * disparo do alarme, para chamar mais atenção que a pré-escuta).
+   */
+  const playBell = useCallback(
+    (repeats = 1) => {
+      const ctx = getCtx();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+
+      // duas parciais harmônicas dão o timbre metálico do sino
+      const partials = [
+        { freq: 880, gain: 0.5 }, // fundamental (A5)
+        { freq: 1760, gain: 0.25 }, // oitava acima
+        { freq: 2640, gain: 0.12 }, // harmônico
+      ];
+
+      for (let r = 0; r < repeats; r++) {
+        const t0 = now + r * 0.6; // espaça os toques repetidos
+        const master = ctx.createGain();
+        master.connect(ctx.destination);
+        // envelope: ataque rápido + decaimento exponencial (~1.1s)
+        master.gain.setValueAtTime(0.0001, t0);
+        master.gain.exponentialRampToValueAtTime(0.9, t0 + 0.01);
+        master.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.1);
+
+        for (const p of partials) {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(p.freq, t0);
+          g.gain.setValueAtTime(p.gain, t0);
+          osc.connect(g);
+          g.connect(master);
+          osc.start(t0);
+          osc.stop(t0 + 1.2);
+        }
+      }
+    },
+    [getCtx],
+  );
+
+  /** Pré-escuta (um toque). */
+  const preview = useCallback(() => playBell(1), [playBell]);
+
+  /** Disparo do alarme/foco (alguns toques em sequência). */
+  const fire = useCallback(() => playBell(3), [playBell]);
+
+  /** Mantido por compatibilidade — o sino é curto e não precisa ser parado. */
+  const stop = useCallback(() => {}, []);
+
+  // fecha o contexto ao desmontar
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const el = new Audio();
-    el.preload = "none";
-    audioRef.current = el;
-    const onEnded = () => setPlayingId(null);
-    el.addEventListener("ended", onEnded);
     return () => {
-      el.removeEventListener("ended", onEnded);
-      el.pause();
-      audioRef.current = null;
+      ctxRef.current?.close().catch(() => {});
+      ctxRef.current = null;
     };
   }, []);
 
-  /** Para qualquer preview em andamento. */
-  const stop = useCallback(() => {
-    const el = audioRef.current;
-    if (el) {
-      el.pause();
-      el.currentTime = 0;
-    }
-    setPlayingId(null);
-  }, []);
-
-  /**
-   * Toca (preview) o som de id informado. Se já estiver tocando esse mesmo som,
-   * funciona como toggle (para). Marca como "missing" se o arquivo não carregar.
-   */
-  const preview = useCallback(
-    (soundId: string) => {
-      const el = audioRef.current;
-      if (!el) return;
-      // toggle: clicar de novo no que toca → para
-      if (playingId === soundId) {
-        stop();
-        return;
-      }
-      const sound = getSound(soundId);
-      el.pause();
-      el.currentTime = 0;
-      el.src = sound.src;
-      setPlayingId(soundId);
-      el.play().catch(() => {
-        // arquivo ausente / bloqueio de autoplay → sinaliza e limpa
-        setMissing((prev) => new Set(prev).add(soundId));
-        setPlayingId((cur) => (cur === soundId ? null : cur));
-      });
-    },
-    [playingId, stop],
-  );
-
-  /**
-   * Dispara o som do alarme (sem toggle, sem destacar UI). Usado pelo
-   * scheduler quando o alarme toca. Cria um elemento próprio para não
-   * conflitar com o preview e permitir toques sobrepostos.
-   */
-  const fire = useCallback((soundId: string) => {
-    if (typeof window === "undefined") return;
-    const sound = getSound(soundId);
-    const el = new Audio(sound.src);
-    el.play().catch(() => {
-      setMissing((prev) => new Set(prev).add(soundId));
-    });
-  }, []);
-
   return {
-    /** id tocando no preview (ou null). */
-    playingId,
-    /** sons cujo arquivo não pôde ser carregado. */
-    missing,
-    /** inicia/para o preview de um som (toggle). */
+    /** pré-escuta o sino (um toque). */
     preview,
-    /** para o preview atual. */
-    stop,
-    /** dispara o som (uso do scheduler). */
+    /** dispara o sino (uso do scheduler/foco). */
     fire,
+    /** no-op (compatibilidade). */
+    stop,
   };
 }

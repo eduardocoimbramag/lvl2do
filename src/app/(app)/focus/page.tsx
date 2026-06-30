@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -9,8 +9,6 @@ import {
   Pause,
   Square,
   RotateCcw,
-  Clock,
-  Music,
   CheckCircle2,
   Zap,
   ArrowRight,
@@ -18,19 +16,11 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/Button";
 import { FocusRing } from "@/components/FocusRing";
-import { SoundPicker } from "@/components/SoundPicker";
 import { CategoryBadge, categoryMeta } from "@/components/CategoryBadge";
 import { useAppMissions } from "@/hooks/AppStateProvider";
 import { useFocusTimer } from "@/hooks/useFocusTimer";
 import { useAlarmSound } from "@/hooks/useAlarmSound";
-import {
-  FOCUS_PRESETS,
-  FOCUS_XP_REWARD,
-  MIN_FOCUS_MINUTES,
-  MAX_FOCUS_MINUTES,
-  describeMinutes,
-} from "@/data/focus";
-import { DEFAULT_SOUND_ID } from "@/lib/alarm-sounds";
+import { FOCUS_PRESETS, FOCUS_XP_REWARD, describeMinutes } from "@/data/focus";
 import { CATEGORIES, type Category } from "@/data/types";
 import { cn } from "@/lib/utils";
 
@@ -44,13 +34,12 @@ interface DoneInfo {
 
 export default function FocusPage() {
   const { addCompletedMission } = useAppMissions();
-  const { playingId, preview, stop, missing, fire } = useAlarmSound();
+  const { fire } = useAlarmSound();
 
   // formulário
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>("Profissional");
   const [minutes, setMinutes] = useState(25);
-  const [soundId, setSoundId] = useState<string>(DEFAULT_SOUND_ID);
 
   // info da sessão concluída (tela de done)
   const [done, setDone] = useState<DoneInfo | null>(null);
@@ -62,8 +51,8 @@ export default function FocusPage() {
     onComplete: () => {
       const session = activeSession.current;
       if (!session) return;
-      // toca o alerta escolhido
-      fire(soundId);
+      // toca o sino de conclusão
+      fire();
       // registra como missão concluída do dia (+XP) na área escolhida
       const creditedXp = addCompletedMission({
         title: session.title,
@@ -75,12 +64,8 @@ export default function FocusPage() {
     },
   });
 
-  // para qualquer preview ao desmontar
-  useEffect(() => stop, [stop]);
-
   function handleStart() {
     if (!title.trim()) return;
-    stop();
     activeSession.current = { title: title.trim(), category, minutes };
     setDone(null);
     timer.start(minutes);
@@ -181,37 +166,6 @@ export default function FocusPage() {
                       );
                     })}
                   </div>
-                  {/* custom */}
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <Clock size={15} className="text-muted" />
-                    <input
-                      type="number"
-                      min={MIN_FOCUS_MINUTES}
-                      max={MAX_FOCUS_MINUTES}
-                      value={minutes}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        if (Number.isNaN(v)) return;
-                        setMinutes(Math.min(MAX_FOCUS_MINUTES, Math.max(MIN_FOCUS_MINUTES, v)));
-                      }}
-                      className="w-20 rounded-lg border border-white/10 bg-ink px-2.5 py-1.5 text-sm text-soft focus:border-brand/50 focus:outline-none focus:ring-2 focus:ring-brand/30"
-                    />
-                    <span className="text-sm text-muted">minutos</span>
-                  </div>
-                </div>
-
-                {/* som de alerta */}
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-sm text-muted">
-                    <Music size={14} /> Som ao concluir
-                  </label>
-                  <SoundPicker
-                    value={soundId}
-                    onChange={setSoundId}
-                    playingId={playingId}
-                    onPreview={preview}
-                    missing={missing}
-                  />
                 </div>
 
                 <Button className="w-full" size="lg" onClick={handleStart} disabled={!title.trim()}>

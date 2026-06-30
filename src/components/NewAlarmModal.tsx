@@ -10,12 +10,9 @@ import {
   CalendarDays,
   Pencil,
   RotateCw,
-  Music,
 } from "lucide-react";
 import { SchedulePopover } from "./SchedulePopover";
-import { SoundPicker } from "./SoundPicker";
 import { Button } from "./Button";
-import { useAlarmSound } from "@/hooks/useAlarmSound";
 import {
   INTERVAL_PRESETS,
   MIN_INTERVAL_MINUTES,
@@ -27,7 +24,6 @@ import {
   type AlarmRepeat,
   type AlarmIntradayRepeat,
 } from "@/data/alarms";
-import { DEFAULT_SOUND_ID } from "@/lib/alarm-sounds";
 import type { MissionSchedule } from "@/data/types";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +66,6 @@ function scheduleToRepeat(schedule: MissionSchedule): AlarmRepeat {
  */
 export function NewAlarmModal({ open, onClose, onSave, initial }: NewAlarmModalProps) {
   const editing = !!initial;
-  const { playingId, preview, stop, missing } = useAlarmSound();
 
   const [label, setLabel] = useState("");
   const [time, setTime] = useState("08:00");
@@ -80,7 +75,6 @@ export function NewAlarmModal({ open, onClose, onSave, initial }: NewAlarmModalP
     untilTime: "18:00",
   });
   const [repeat, setRepeat] = useState<AlarmRepeat>({ type: "once" });
-  const [soundId, setSoundId] = useState<string>(DEFAULT_SOUND_ID);
   const [popover, setPopover] = useState<"weekly" | "dates" | null>(null);
 
   // (re)inicializa o formulário ao abrir (novo ou edição)
@@ -91,20 +85,13 @@ export function NewAlarmModal({ open, onClose, onSave, initial }: NewAlarmModalP
       setTime(initial.time);
       setIntraday(initial.intraday);
       setRepeat(initial.repeat);
-      setSoundId(initial.soundId || DEFAULT_SOUND_ID);
     } else {
       setLabel("");
       setTime("08:00");
       setIntraday({ enabled: false, intervalMinutes: 60, untilTime: "18:00" });
       setRepeat({ type: "once" });
-      setSoundId(DEFAULT_SOUND_ID);
     }
   }, [open, initial]);
-
-  // para o preview ao fechar
-  useEffect(() => {
-    if (!open) stop();
-  }, [open, stop]);
 
   /** Clique numa pílula de agendamento (dias). */
   function handleRepeatOption(type: RepeatType) {
@@ -130,17 +117,15 @@ export function NewAlarmModal({ open, onClose, onSave, initial }: NewAlarmModalP
       time,
       intraday,
       repeat,
-      soundId,
       enabled: initial?.enabled ?? true,
     };
-  }, [label, time, startMin, intraday, repeat, soundId, initial, intervalInvalid, untilInvalid]);
+  }, [label, time, startMin, intraday, repeat, initial, intervalInvalid, untilInvalid]);
 
   // quantos toques por dia (prévia)
   const fireCount = draft ? alarmFireCount({ ...draft, id: "x", createdAt: "" }) : 0;
 
   function handleSubmit() {
     if (!draft) return;
-    stop();
     onSave(draft);
     onClose();
   }
@@ -420,20 +405,6 @@ export function NewAlarmModal({ open, onClose, onSave, initial }: NewAlarmModalP
                     </button>
                   </div>
                 )}
-              </div>
-
-              {/* som */}
-              <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-sm text-muted">
-                  <Music size={14} /> Som do alarme
-                </label>
-                <SoundPicker
-                  value={soundId}
-                  onChange={setSoundId}
-                  playingId={playingId}
-                  onPreview={preview}
-                  missing={missing}
-                />
               </div>
             </div>
 

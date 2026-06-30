@@ -11,12 +11,8 @@
  */
 export const FOCUS_XP_REWARD = 25;
 
-/** Durações sugeridas (em minutos) oferecidas como atalhos na tela. */
+/** Durações disponíveis (em minutos). Apenas tempos pré-determinados. */
 export const FOCUS_PRESETS: number[] = [15, 25, 30, 45, 60, 90];
-
-/** Limites do tempo personalizado (minutos). */
-export const MIN_FOCUS_MINUTES = 1;
-export const MAX_FOCUS_MINUTES = 180;
 
 /** Formata segundos como "MM:SS" (ou "HH:MM:SS" acima de 1h). */
 export function formatClock(totalSeconds: number): string {

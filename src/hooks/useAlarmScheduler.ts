@@ -7,7 +7,6 @@ import {
   timeToMinutes,
   type Alarm,
 } from "@/data/alarms";
-import { getSoundLabel } from "@/lib/alarm-sounds";
 import { toISODate } from "@/data/types";
 import { useAlarmSound } from "./useAlarmSound";
 import { useAppNotifications } from "./AppStateProvider";
@@ -111,11 +110,11 @@ export function useAlarmScheduler(alarms: Alarm[], options: SchedulerOptions = {
 
       // dispara!
       firedRef.current.add(firedKey);
-      fire(alarm.soundId);
+      fire();
       addNotification({
         type: "info",
         title: `⏰ ${alarm.label || "Alarme"}`,
-        description: `${nowHM} · ${getSoundLabel(alarm.soundId)}`,
+        description: nowHM,
       });
 
       // "once": desativa após o ÚLTIMO toque do dia (respeita repetição intradiária)

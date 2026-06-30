@@ -9,7 +9,6 @@ import { AlarmCard } from "@/components/AlarmCard";
 import { NewAlarmModal, type AlarmDraft } from "@/components/NewAlarmModal";
 import { AnimatedGrid } from "@/components/Section";
 import { useAppAlarms } from "@/hooks/AppStateProvider";
-import { useAlarmSound } from "@/hooks/useAlarmSound";
 import {
   alarmFireTimes,
   alarmOccursOnDate,
@@ -21,7 +20,6 @@ import { cn } from "@/lib/utils";
 export default function AlarmsPage() {
   const { alarms, hydrated, addAlarm, updateAlarm, removeAlarm, toggleEnabled, enabledCount } =
     useAppAlarms();
-  const { playingId, preview } = useAlarmSound();
 
   const [modalOpen, setModalOpen] = useState(false);
   // alarme em edição (ou null = criação)
@@ -105,8 +103,6 @@ export default function AlarmsPage() {
                 onToggle={toggleEnabled}
                 onEdit={openEdit}
                 onRemove={removeAlarm}
-                onPreview={preview}
-                previewingId={playingId}
               />
             ))}
           </AnimatePresence>

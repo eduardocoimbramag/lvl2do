@@ -58,8 +58,6 @@ export interface Alarm {
   intraday: AlarmIntradayRepeat;
   /** em quais dias o alarme vale (once/weekly/dates). */
   repeat: AlarmRepeat;
-  /** id do som escolhido (ver alarm-sounds). */
-  soundId: string;
   /** alarme ativo? (pode ser pausado sem apagar). */
   enabled: boolean;
   /** data de criação (ISO). */
@@ -190,16 +188,4 @@ export function describeAlarmIntraday(intraday: AlarmIntradayRepeat): string | n
   const label =
     interval % 60 === 0 ? `${interval / 60}h` : interval > 60 ? `${Math.floor(interval / 60)}h${interval % 60}` : `${interval}min`;
   return `A cada ${label} até ${intraday.untilTime}`;
-}
-
-/** Valores padrão de um novo alarme (antes de o usuário preencher). */
-export function defaultAlarmDraft(): Omit<Alarm, "id" | "createdAt"> {
-  return {
-    label: "",
-    time: "08:00",
-    intraday: { enabled: false, intervalMinutes: 60, untilTime: "18:00" },
-    repeat: { type: "once" },
-    soundId: "", // preenchido com o primeiro som do catálogo na UI
-    enabled: true,
-  };
 }

@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Pencil, Trash2, X, RotateCw, CalendarClock, Volume2 } from "lucide-react";
+import { Pencil, Trash2, X, RotateCw, CalendarClock } from "lucide-react";
 import {
   alarmFireCount,
   describeAlarmIntraday,
   describeAlarmRepeat,
   type Alarm,
 } from "@/data/alarms";
-import { getSoundLabel } from "@/lib/alarm-sounds";
 import { cn } from "@/lib/utils";
 
 interface AlarmCardProps {
@@ -17,30 +16,18 @@ interface AlarmCardProps {
   onToggle: (id: string) => void;
   onEdit: (alarm: Alarm) => void;
   onRemove: (id: string) => void;
-  /** pré-escuta o som do alarme (toggle). */
-  onPreview: (soundId: string) => void;
-  /** id do som tocando agora (para destacar o botão). */
-  previewingId: string | null;
 }
 
 /**
  * Card de um alarme: horário em destaque, nome, etiquetas de recorrência /
- * repetição intradiária / som, switch de ativar e ações (editar, remover).
+ * repetição intradiária, switch de ativar e ações (editar, remover).
  * Visual premium consistente com os cards do projeto.
  */
-export function AlarmCard({
-  alarm,
-  onToggle,
-  onEdit,
-  onRemove,
-  onPreview,
-  previewingId,
-}: AlarmCardProps) {
+export function AlarmCard({ alarm, onToggle, onEdit, onRemove }: AlarmCardProps) {
   const [confirming, setConfirming] = useState(false);
   const enabled = alarm.enabled;
   const fireCount = alarmFireCount(alarm);
   const intradayText = describeAlarmIntraday(alarm.intraday);
-  const previewing = previewingId === alarm.soundId;
 
   return (
     <motion.div
@@ -111,21 +98,6 @@ export function AlarmCard({
             {intradayText}
           </span>
         )}
-        {/* som — clicável p/ pré-escuta */}
-        <button
-          type="button"
-          onClick={() => onPreview(alarm.soundId)}
-          aria-label={`Ouvir som ${getSoundLabel(alarm.soundId)}`}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors",
-            previewing
-              ? "border-brand/50 bg-brand/15 text-brand-light"
-              : "border-white/10 bg-white/5 text-soft hover:border-brand/40 hover:text-brand-light",
-          )}
-        >
-          <Volume2 size={13} className={previewing ? "" : "text-brand-light"} />
-          {getSoundLabel(alarm.soundId)}
-        </button>
       </div>
 
       {/* ações */}
