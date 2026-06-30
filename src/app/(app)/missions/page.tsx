@@ -22,7 +22,7 @@ export default function MissionsPage() {
     toggle,
     fail,
     addMission,
-    updateSchedule,
+    updateMission,
     removeMission,
     stats,
   } = useAppMissions();
@@ -82,7 +82,7 @@ export default function MissionsPage() {
       {/* aba expansiva de missões recorrentes (semanais/datas) com editar e remover */}
       <PreconfiguredMissions
         missions={allMissions}
-        onUpdateSchedule={updateSchedule}
+        onUpdateMission={updateMission}
         onRemove={removeMission}
       />
 

@@ -13,19 +13,18 @@ import {
   Zap,
 } from "lucide-react";
 import { CategoryBadge, ShiftBadge } from "./CategoryBadge";
-import { SchedulePopover } from "./SchedulePopover";
+import { NewMissionModal, type MissionEditValues } from "./NewMissionModal";
 import {
   describeSchedule,
   type Mission,
-  type MissionSchedule,
 } from "@/data/types";
 import { cn } from "@/lib/utils";
 
 interface PreconfiguredMissionsProps {
   /** todas as missões (filtramos as recorrentes aqui) */
   missions: Mission[];
-  /** atualiza a regra de agendamento de uma missão */
-  onUpdateSchedule: (id: string, schedule: MissionSchedule) => void;
+  /** atualiza todos os campos editáveis de uma missão */
+  onUpdateMission: (id: string, values: MissionEditValues) => void;
   /** remove a missão por completo */
   onRemove: (id: string) => void;
 }
@@ -33,15 +32,15 @@ interface PreconfiguredMissionsProps {
 /**
  * Seção expansiva "Missões pré-configuradas".
  * Lista as missões recorrentes em 2 colunas (Semanais | Datas específicas),
- * cada uma com lápis (editar dias/datas) e X (remover).
+ * cada uma com lápis (editar tudo) e X (remover).
  */
 export function PreconfiguredMissions({
   missions,
-  onUpdateSchedule,
+  onUpdateMission,
   onRemove,
 }: PreconfiguredMissionsProps) {
   const [open, setOpen] = useState(false);
-  // missão em edição no pop-up de agendamento (ou null)
+  // missão em edição no modal completo (ou null)
   const [editing, setEditing] = useState<Mission | null>(null);
 
   const weekly = useMemo(
@@ -124,14 +123,13 @@ export function PreconfiguredMissions({
         )}
       </AnimatePresence>
 
-      {/* pop-up de agendamento para editar a missão selecionada */}
-      <SchedulePopover
+      {/* modal completo para editar a missão selecionada (todos os campos) */}
+      <NewMissionModal
         open={editing !== null}
-        mode={editing?.schedule.type === "dates" ? "dates" : "weekly"}
-        initial={editing?.schedule}
+        initialMission={editing}
         onClose={() => setEditing(null)}
-        onConfirm={(schedule) => {
-          if (editing) onUpdateSchedule(editing.id, schedule);
+        onSave={(id, values) => {
+          onUpdateMission(id, values);
           setEditing(null);
         }}
       />

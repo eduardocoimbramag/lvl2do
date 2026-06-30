@@ -20,13 +20,23 @@ import { SchedulePopover } from "./SchedulePopover";
 import { Button } from "./Button";
 import { cn } from "@/lib/utils";
 
+/** Campos editáveis de uma missão (modo edição). */
+export type MissionEditValues = Pick<
+  Mission,
+  "title" | "description" | "category" | "difficulty" | "shift" | "xp" | "schedule"
+>;
+
 interface NewMissionModalProps {
   open: boolean;
   onClose: () => void;
-  /** cria a missão apenas em memória (sem salvar no banco) */
-  onCreate: (mission: Mission) => void;
+  /** cria a missão (modo criação). Ignorado quando initialMission é informada. */
+  onCreate?: (mission: Mission) => void;
   /** categoria (card de destino) pré-selecionada ao abrir o modal */
   initialCategory?: Category;
+  /** quando informada, o modal abre em modo EDIÇÃO com estes valores. */
+  initialMission?: Mission | null;
+  /** salva as alterações (modo edição). */
+  onSave?: (id: string, values: MissionEditValues) => void;
 }
 
 /** Opções de agendamento exibidas como pílulas. */
@@ -42,7 +52,15 @@ type ScheduleType = (typeof SCHEDULE_OPTIONS)[number]["type"];
  * Modal visual de criação de missão.
  * IMPORTANTE: não salva dados no banco — apenas adiciona à lista local.
  */
-export function NewMissionModal({ open, onClose, onCreate, initialCategory }: NewMissionModalProps) {
+export function NewMissionModal({
+  open,
+  onClose,
+  onCreate,
+  initialCategory,
+  initialMission,
+  onSave,
+}: NewMissionModalProps) {
+  const editing = !!initialMission;
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [category, setCategory] = useState<Category>(initialCategory ?? "Profissional");
@@ -52,10 +70,25 @@ export function NewMissionModal({ open, onClose, onCreate, initialCategory }: Ne
   // pop-up de agendamento ("weekly" | "dates") ou fechado (null)
   const [popover, setPopover] = useState<"weekly" | "dates" | null>(null);
 
-  // Sincroniza o card de destino quando o modal é aberto a partir de uma coluna.
+  // (re)inicializa o formulário ao abrir: edição preenche; criação zera.
   useEffect(() => {
-    if (open && initialCategory) setCategory(initialCategory);
-  }, [open, initialCategory]);
+    if (!open) return;
+    if (initialMission) {
+      setTitle(initialMission.title);
+      setSubtitle(initialMission.description ?? "");
+      setCategory(initialMission.category);
+      setDifficulty(initialMission.difficulty);
+      setShift(initialMission.shift);
+      setSchedule(initialMission.schedule);
+    } else {
+      setTitle("");
+      setSubtitle("");
+      setCategory(initialCategory ?? "Profissional");
+      setDifficulty("Fácil");
+      setShift("Manhã");
+      setSchedule({ type: "today" });
+    }
+  }, [open, initialMission, initialCategory]);
 
   const xp = XP_BY_DIFFICULTY[difficulty];
 
@@ -80,18 +113,31 @@ export function NewMissionModal({ open, onClose, onCreate, initialCategory }: Ne
 
   function handleSubmit() {
     if (!title.trim()) return;
-    onCreate({
-      id: `local-${title}-${xp}-${category}-${shift}`,
-      title: title.trim(),
-      description: subtitle.trim() || undefined,
-      category,
-      difficulty,
-      shift,
-      status: "pending",
-      xp,
-      schedule,
-    });
-    resetForm();
+    if (editing && initialMission) {
+      // modo edição: salva todos os campos editáveis
+      onSave?.(initialMission.id, {
+        title: title.trim(),
+        description: subtitle.trim() || undefined,
+        category,
+        difficulty,
+        shift,
+        xp,
+        schedule,
+      });
+    } else {
+      onCreate?.({
+        id: `local-${title}-${xp}-${category}-${shift}`,
+        title: title.trim(),
+        description: subtitle.trim() || undefined,
+        category,
+        difficulty,
+        shift,
+        status: "pending",
+        xp,
+        schedule,
+      });
+      resetForm();
+    }
     onClose();
   }
 
@@ -119,7 +165,7 @@ export function NewMissionModal({ open, onClose, onCreate, initialCategory }: Ne
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Nova missão"
+            aria-label={editing ? "Editar missão" : "Nova missão"}
             initial={{ y: 40, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 40, opacity: 0, scale: 0.98 }}
@@ -127,7 +173,9 @@ export function NewMissionModal({ open, onClose, onCreate, initialCategory }: Ne
             className="card-surface relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-b-none rounded-t-3xl p-6 sm:rounded-3xl"
           >
             <div className="mb-5 flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold text-soft">Nova missão</h2>
+              <h2 className="font-display text-lg font-semibold text-soft">
+                {editing ? "Editar missão" : "Nova missão"}
+              </h2>
               <button
                 type="button"
                 onClick={onClose}
@@ -301,11 +349,9 @@ export function NewMissionModal({ open, onClose, onCreate, initialCategory }: Ne
                 Cancelar
               </Button>
               <Button className="flex-1" onClick={handleSubmit} disabled={!title.trim()}>
-                Criar missão
+                {editing ? "Salvar alterações" : "Criar missão"}
               </Button>
             </div>
-
-            {/* NOTA: dados não são persistidos — apenas estado local. */}
           </motion.div>
 
           {/* pop-up de agendamento (por cima do modal) */}

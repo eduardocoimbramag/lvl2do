@@ -6,6 +6,7 @@ import {
   createMission,
   updateMissionStatus,
   updateMissionSchedule,
+  updateMissionFull,
   deleteMission,
 } from "@/lib/db/missions";
 import {
@@ -234,6 +235,36 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
     );
   }, []);
 
+  /**
+   * Atualiza TODOS os campos editáveis de uma missão (título, subtítulo,
+   * categoria, turno, dificuldade, XP e agendamento). Aplica de forma otimista
+   * e persiste no banco.
+   */
+  const updateMission = useCallback(
+    (
+      id: string,
+      patch: Pick<
+        Mission,
+        "title" | "description" | "category" | "difficulty" | "shift" | "xp" | "schedule"
+      >,
+    ) => {
+      setMissions((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+      const parts = scheduleParts(patch.schedule);
+      updateMissionFull(id, {
+        title: patch.title,
+        description: patch.description,
+        category: patch.category,
+        difficulty: patch.difficulty,
+        shift: patch.shift,
+        xp: patch.xp,
+        scheduleType: parts.scheduleType,
+        scheduleWeekdays: parts.scheduleWeekdays,
+        scheduleDates: parts.scheduleDates,
+      }).catch((e) => console.error(e));
+    },
+    [],
+  );
+
   /** Remove a missão do banco e da lista. */
   const removeMission = useCallback((id: string) => {
     setMissions((prev) => prev.filter((m) => m.id !== id));
@@ -262,6 +293,7 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
     addMission,
     addCompletedMission,
     updateSchedule,
+    updateMission,
     removeMission,
     stats,
   };

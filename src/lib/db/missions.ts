@@ -115,3 +115,43 @@ export async function updateMissionSchedule(
     throw error;
   }
 }
+
+type UpdateMissionInput = {
+  title: string;
+  description?: string;
+  category: "Profissional" | "Pessoal" | "Saúde";
+  difficulty: "Fácil" | "Média" | "Difícil";
+  shift: "Manhã" | "Tarde" | "Noite";
+  xp: number;
+  scheduleType: "today" | "weekly" | "dates";
+  scheduleWeekdays: number[];
+  scheduleDates: string[];
+};
+
+/** Atualiza todos os campos editáveis de uma missão de uma vez. */
+export async function updateMissionFull(missionId: string, input: UpdateMissionInput) {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("missions")
+    .update({
+      title: input.title,
+      description: input.description ?? null,
+      category: input.category,
+      difficulty: input.difficulty,
+      shift: input.shift,
+      xp: input.xp,
+      schedule_type: input.scheduleType,
+      schedule_weekdays: input.scheduleWeekdays,
+      schedule_dates: input.scheduleDates,
+    })
+    .eq("id", missionId)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
