@@ -37,6 +37,10 @@ export type ProfileRow = {
   daily_xp: number;
   /** Dia ("YYYY-MM-DD") ao qual `daily_xp` se refere, ou null. */
   daily_xp_date: string | null;
+  /** XP já ganho no dia de `yesterday_xp_date` (orçamento retroativo de ontem). */
+  yesterday_xp: number;
+  /** Dia ("YYYY-MM-DD") ao qual `yesterday_xp` se refere, ou null. */
+  yesterday_xp_date: string | null;
   current_streak: number;
   best_streak: number;
   last_mission_completed_at: string | null;

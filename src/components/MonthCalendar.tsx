@@ -50,6 +50,11 @@ export function MonthCalendar({
   layoutId = "calendar-selected",
 }: MonthCalendarProps) {
   const today = useMemo(() => new Date(), []);
+  const yesterday = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d;
+  }, []);
   const multiple = Array.isArray(selectedDates);
 
   // mês exibido: inicia no mês do 1º dia selecionado ou no mês atual
@@ -123,10 +128,18 @@ export function MonthCalendar({
         {cells.map((date, i) => {
           if (!date) return <span key={`empty-${i}`} />;
           const isToday = isSameDay(date, today);
+          const isYesterday = isSameDay(date, yesterday);
           const isSelected = isSelectedDay(date);
           const marked = isMarked
             ? isMarked(date)
             : markedDates?.has(toISODate(date)) ?? false;
+          // cor do pontinho: hoje=verde, ontem=amarelo, demais marcados=brand
+          const showDot = marked || isToday || isYesterday;
+          const dotColor = isToday
+            ? "bg-success"
+            : isYesterday
+              ? "bg-amber-400"
+              : "bg-brand";
           return (
             <button
               type="button"
@@ -153,14 +166,9 @@ export function MonthCalendar({
                   />
                 ))}
               {date.getDate()}
-              {/* marcador de missões / indicador de hoje */}
-              {(marked || (isToday && !isSelected)) && (
-                <span
-                  className={cn(
-                    "absolute bottom-1 h-1 w-1 rounded-full",
-                    marked ? "bg-brand" : "bg-brand-light",
-                  )}
-                />
+              {/* marcador: hoje=verde, ontem=amarelo, demais com missões=brand */}
+              {showDot && (
+                <span className={cn("absolute bottom-1 h-1.5 w-1.5 rounded-full", dotColor)} />
               )}
             </button>
           );

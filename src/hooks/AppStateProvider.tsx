@@ -4,6 +4,13 @@ import { createContext, useCallback, useContext, useMemo, type ReactNode } from 
 import { useAuth } from "@/components/AuthProvider";
 import { updateMyProfile } from "@/lib/db/profiles";
 import { logXpEvent } from "@/lib/db/xpEvents";
+import { getLocalDateKey } from "@/lib/xp-system";
+
+/** ISO de meio-dia local de uma data "YYYY-MM-DD" (evita pular de dia por fuso). */
+function noonOf(dateKey: string): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0).toISOString();
+}
 import { useUserStats } from "./useUserStats";
 import { useMissions } from "./useMissions";
 import { useStreak } from "./useStreak";
@@ -36,14 +43,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth();
   const userId = user?.id ?? null;
 
-  // persiste XP/level + contador diário no profile (best-effort, não bloqueia a UI)
+  // persiste XP/level + contadores diários (hoje e ontem) no profile (best-effort).
   const persistStats = useCallback(
-    (totalXp: number, level: number, dailyXp: number, dailyXpDate: string) => {
+    (s: {
+      totalXp: number;
+      level: number;
+      dailyXp: number;
+      dailyXpDate: string;
+      yesterdayXp: number;
+      yesterdayXpDate: string | null;
+    }) => {
       updateMyProfile({
-        total_xp: totalXp,
-        level,
-        daily_xp: dailyXp,
-        daily_xp_date: dailyXpDate,
+        total_xp: s.totalXp,
+        level: s.level,
+        daily_xp: s.dailyXp,
+        daily_xp_date: s.dailyXpDate,
+        yesterday_xp: s.yesterdayXp,
+        yesterday_xp_date: s.yesterdayXpDate,
       }).catch(() => {});
     },
     [],
@@ -54,6 +70,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     seedTotalXp: profile?.total_xp ?? 0,
     seedDailyXp: profile?.daily_xp ?? 0,
     seedDailyXpDate: profile?.daily_xp_date ?? null,
+    seedYesterdayXp: profile?.yesterday_xp ?? 0,
+    seedYesterdayXpDate: profile?.yesterday_xp_date ?? null,
     persistStats,
   });
 
@@ -81,18 +99,41 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // registra um evento de XP (para o histórico de métricas).
   const missionsApi = useMissions({
     userId,
-    onMissionCompleted: ({ xp, category, missionId }) => {
-      const earned = userStats.completeMission(xp).earnedXp;
-      registerCompletion();
+    onMissionCompleted: ({ xp, category, missionId, targetDateKey }) => {
+      const todayKey = getLocalDateKey(new Date());
+      const isRetro = !!targetDateKey && targetDateKey !== todayKey;
+      // crédito no orçamento do dia-alvo (ontem) ou de hoje
+      const earned = isRetro
+        ? userStats.completeMissionForDay(xp, targetDateKey!).earnedXp
+        : userStats.completeMission(xp).earnedXp;
+      // só conta para o streak quando a conclusão é de hoje
+      if (!isRetro) registerCompletion();
       if (userId) {
-        logXpEvent({ userId, kind: "gain", amount: earned, category, missionId }).catch(() => {});
+        logXpEvent({
+          userId,
+          kind: "gain",
+          amount: earned,
+          category,
+          missionId,
+          occurredAt: isRetro ? noonOf(targetDateKey!) : undefined,
+        }).catch(() => {});
       }
       return earned;
     },
-    onMissionReverted: ({ xp, category, missionId }) => {
-      userStats.revertMission(xp);
+    onMissionReverted: ({ xp, category, missionId, targetDateKey }) => {
+      const todayKey = getLocalDateKey(new Date());
+      const isRetro = !!targetDateKey && targetDateKey !== todayKey;
+      if (isRetro) userStats.revertMissionForDay(xp, targetDateKey!);
+      else userStats.revertMission(xp);
       if (userId) {
-        logXpEvent({ userId, kind: "revert", amount: -xp, category, missionId }).catch(() => {});
+        logXpEvent({
+          userId,
+          kind: "revert",
+          amount: -xp,
+          category,
+          missionId,
+          occurredAt: isRetro ? noonOf(targetDateKey!) : undefined,
+        }).catch(() => {});
       }
     },
   });

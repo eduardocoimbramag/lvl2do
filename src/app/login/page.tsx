@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Mail, Lock } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/Button";
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -70,7 +71,7 @@ export default function LoginPage() {
             </Field>
             <Field icon={Lock}>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
                 autoComplete="current-password"
                 value={password}
@@ -78,6 +79,15 @@ export default function LoginPage() {
                 placeholder="Senha"
                 className="w-full bg-transparent py-2.5 text-sm text-soft placeholder:text-muted/60 focus:outline-none"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                aria-pressed={showPassword}
+                className="shrink-0 rounded-md p-1 text-muted transition-colors hover:text-soft"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </Field>
 
             {error && <p className="text-sm text-red-400">{error}</p>}

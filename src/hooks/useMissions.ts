@@ -77,6 +77,11 @@ export interface MissionXpContext {
   category: Mission["category"];
   /** id da missão (ausente em missões de foco ainda não persistidas). */
   missionId?: string;
+  /**
+   * Dia-alvo ("YYYY-MM-DD") da conclusão. Quando ausente, é hoje. Usado pelo
+   * calendário para concluir/desfazer missões de ontem no orçamento correto.
+   */
+  targetDateKey?: string;
 }
 
 interface UseMissionsOptions {
@@ -101,6 +106,43 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
   const onRevertedRef = useRef(onMissionReverted);
   onRevertedRef.current = onMissionReverted;
   const creditedByMission = useRef<Record<string, number>>({});
+
+  /**
+   * Conclusões RETROATIVAS (ex.: missões de ontem marcadas no calendário).
+   * Como as missões têm um único `status` global (não por dia), não alteramos o
+   * status — registramos a conclusão por (missão+dia) à parte e creditamos o XP
+   * no orçamento daquele dia. Persistido em localStorage para sobreviver a
+   * recarregar (o orçamento de ontem só vale até virar o dia).
+   */
+  const RETRO_KEY = "lvl2do.retroCompletions.v1";
+  const [retro, setRetro] = useState<Record<string, number>>({});
+  const retroRef = useRef<Record<string, number>>({});
+  retroRef.current = retro;
+
+  // hidrata as conclusões retroativas do localStorage (uma vez)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(RETRO_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") setRetro(parsed as Record<string, number>);
+      }
+    } catch {
+      /* ignora */
+    }
+  }, []);
+
+  const commitRetro = useCallback((next: Record<string, number>) => {
+    setRetro(next);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(RETRO_KEY, JSON.stringify(next));
+      } catch {
+        /* ignora */
+      }
+    }
+  }, []);
 
   // carrega as missões do usuário
   useEffect(() => {
@@ -141,6 +183,61 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
       }
     }
   }, []);
+
+  /** Chave de conclusão retroativa (missão + dia). */
+  const retroKeyOf = (id: string, dateKey: string) => `${id}@${dateKey}`;
+
+  /** Uma (missão, dia) já foi concluída retroativamente? */
+  const isCompletedForDay = useCallback(
+    (id: string, dateKey: string) => retroKeyOf(id, dateKey) in retroRef.current,
+    [],
+  );
+
+  /**
+   * Conclui/desfaz uma missão PARA UM DIA específico (usado pelo calendário).
+   * - Hoje  → delega ao toggle normal (status real + orçamento de hoje).
+   * - Ontem → registra a conclusão retroativa e credita/reverte no orçamento de
+   *   ontem, sem alterar o status global da missão.
+   */
+  const toggleForDay = useCallback(
+    (id: string, dateKey: string) => {
+      const todayKey = toISODate(new Date());
+      if (dateKey === todayKey) {
+        toggle(id);
+        return;
+      }
+      const target = missionsRef.current.find((m) => m.id === id);
+      if (!target) return;
+
+      const key = retroKeyOf(id, dateKey);
+      const already = key in retroRef.current;
+
+      if (!already) {
+        const credited =
+          onCompletedRef.current?.({
+            xp: target.xp,
+            category: target.category,
+            missionId: id,
+            targetDateKey: dateKey,
+          }) ?? 0;
+        commitRetro({ ...retroRef.current, [key]: credited });
+      } else {
+        const credited = retroRef.current[key] ?? 0;
+        const next = { ...retroRef.current };
+        delete next[key];
+        commitRetro(next);
+        if (credited > 0) {
+          onRevertedRef.current?.({
+            xp: credited,
+            category: target.category,
+            missionId: id,
+            targetDateKey: dateKey,
+          });
+        }
+      }
+    },
+    [toggle, commitRetro],
+  );
 
   /** Marca como falhada/pendente (sem XP). */
   const fail = useCallback((id: string) => {
@@ -289,6 +386,8 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
     missions: todayMissions,
     allMissions: missions,
     toggle,
+    toggleForDay,
+    isCompletedForDay,
     fail,
     addMission,
     addCompletedMission,

@@ -26,6 +26,14 @@ export type UserStats = {
   dailyXp: number;
   /** Dia ao qual `dailyXp` se refere ("YYYY-MM-DD"). */
   dailyXpDate: string;
+  /**
+   * XP já ganho no dia de `yesterdayXpDate` (orçamento separado para conclusões
+   * retroativas do dia anterior). Permite marcar missões esquecidas de ontem sem
+   * consumir o limite de hoje.
+   */
+  yesterdayXp: number;
+  /** Dia ao qual `yesterdayXp` se refere ("YYYY-MM-DD"), ou null. */
+  yesterdayXpDate: string | null;
   /** Último dia em que o usuário concluiu ao menos uma missão. */
   lastMissionCompletedDate: string | null;
   /** Último dia já processado pela verificação de inatividade. */
@@ -255,6 +263,151 @@ export function applyXpRevert(
     levelBefore,
     levelAfter,
     levelDrop: levelBefore - levelAfter,
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Ganho/Reversão de XP por DIA (hoje ou ontem)                               */
+/* -------------------------------------------------------------------------- */
+
+/** Chave "YYYY-MM-DD" do dia anterior a `dateKey`. */
+export function previousDateKey(dateKey: string): string {
+  const d = dateFromKey(dateKey);
+  d.setDate(d.getDate() - 1);
+  return getLocalDateKey(d);
+}
+
+/** Qual orçamento um dia-alvo usa em relação a hoje: 'today' | 'yesterday' | 'other'. */
+export function dayBudgetKind(targetKey: string, todayKey: string): "today" | "yesterday" | "other" {
+  if (targetKey === todayKey) return "today";
+  if (targetKey === previousDateKey(todayKey)) return "yesterday";
+  return "other";
+}
+
+/**
+ * Normaliza os orçamentos diários para o dia atual:
+ * - se `dailyXpDate` não é hoje, zera o de hoje;
+ * - se `yesterdayXpDate` não é o dia anterior a hoje, zera o de ontem.
+ * Mantém o total/level intactos.
+ */
+export function normalizeDailyBudgets(userStats: UserStats, todayKey: string): UserStats {
+  const yKey = previousDateKey(todayKey);
+  const daily =
+    userStats.dailyXpDate === todayKey
+      ? { dailyXp: userStats.dailyXp, dailyXpDate: todayKey }
+      : { dailyXp: 0, dailyXpDate: todayKey };
+  const yest =
+    userStats.yesterdayXpDate === yKey
+      ? { yesterdayXp: userStats.yesterdayXp, yesterdayXpDate: yKey }
+      : { yesterdayXp: 0, yesterdayXpDate: yKey };
+  return { ...userStats, ...daily, ...yest };
+}
+
+/** Resultado de um ganho aplicado a um orçamento específico (hoje/ontem). */
+export type XpGainForDayResult = XpGainResult & {
+  /** orçamento afetado. */
+  budget: "today" | "yesterday";
+};
+
+/**
+ * Aplica o ganho de XP de uma missão ao orçamento do dia-alvo (hoje ou ontem).
+ *
+ * - `targetKey === hoje`  → consome o limite de hoje.
+ * - `targetKey === ontem` → consome o limite de ontem (separado), sem afetar hoje.
+ * - qualquer outro dia    → não permitido (earnedXp 0, stats inalteradas).
+ *
+ * O total/level sempre sobe pelo XP creditado, independentemente do orçamento.
+ */
+export function applyXpGainForDay(
+  userStats: UserStats,
+  missionXp: number,
+  targetKey: string,
+  todayKey: string,
+): XpGainForDayResult {
+  const base = normalizeDailyBudgets(userStats, todayKey);
+  const kind = dayBudgetKind(targetKey, todayKey);
+
+  if (kind === "other") {
+    // fora da janela permitida (só hoje/ontem) — não credita
+    return {
+      stats: base,
+      earnedXp: 0,
+      baseXp: missionXp,
+      reachedDailyLimit: false,
+      wasCapped: missionXp > 0,
+      levelBefore: base.level,
+      levelAfter: base.level,
+      levelDelta: 0,
+      budget: "today",
+    };
+  }
+
+  const budgetUsed = kind === "today" ? base.dailyXp : base.yesterdayXp;
+  const earnedXp = calculateEarnedXpToday(budgetUsed, missionXp);
+  const newTotalXp = Math.max(0, base.totalXp + earnedXp);
+  const levelBefore = base.level;
+  const levelAfter = calculateLevelFromXp(newTotalXp);
+
+  const stats: UserStats = {
+    ...base,
+    totalXp: newTotalXp,
+    level: levelAfter,
+    lastMissionCompletedDate: targetKey,
+    ...(kind === "today"
+      ? { dailyXp: base.dailyXp + earnedXp }
+      : { yesterdayXp: base.yesterdayXp + earnedXp }),
+  };
+
+  return {
+    stats,
+    earnedXp,
+    baseXp: missionXp,
+    reachedDailyLimit: (kind === "today" ? stats.dailyXp : stats.yesterdayXp) >= DAILY_XP_LIMIT,
+    wasCapped: earnedXp < missionXp,
+    levelBefore,
+    levelAfter,
+    levelDelta: levelAfter - levelBefore,
+    budget: kind,
+  };
+}
+
+/** Reverte um ganho aplicado a um orçamento específico (hoje/ontem). */
+export function applyXpRevertForDay(
+  userStats: UserStats,
+  creditedXp: number,
+  targetKey: string,
+  todayKey: string,
+): XpRevertResult & { budget: "today" | "yesterday" | "other" } {
+  const base = normalizeDailyBudgets(userStats, todayKey);
+  const kind = dayBudgetKind(targetKey, todayKey);
+
+  const amount = Math.max(0, creditedXp);
+  const newTotalXp = Math.max(0, base.totalXp - amount);
+  const revertedXp = base.totalXp - newTotalXp;
+
+  let dailyXp = base.dailyXp;
+  let yesterdayXp = base.yesterdayXp;
+  if (kind === "today") dailyXp = Math.max(0, base.dailyXp - amount);
+  else if (kind === "yesterday") yesterdayXp = Math.max(0, base.yesterdayXp - amount);
+
+  const levelBefore = base.level;
+  const levelAfter = calculateLevelFromXp(newTotalXp);
+
+  const stats: UserStats = {
+    ...base,
+    totalXp: newTotalXp,
+    level: levelAfter,
+    dailyXp,
+    yesterdayXp,
+  };
+
+  return {
+    stats,
+    revertedXp,
+    levelBefore,
+    levelAfter,
+    levelDrop: levelBefore - levelAfter,
+    budget: kind,
   };
 }
 

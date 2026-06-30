@@ -8,6 +8,12 @@ type LogXpEventInput = {
   amount: number;
   category?: string | null;
   missionId?: string | null;
+  /**
+   * Data/hora ISO do evento. Por padrão é "agora" (default do banco). Informe
+   * para registrar uma conclusão retroativa (ex.: missão de ontem) na data
+   * correta do histórico de métricas.
+   */
+  occurredAt?: string;
 };
 
 /** Registra um evento de XP (log append-only). Best-effort. */
@@ -19,6 +25,7 @@ export async function logXpEvent(input: LogXpEventInput): Promise<void> {
     amount: input.amount,
     category: input.category ?? null,
     mission_id: input.missionId ?? null,
+    ...(input.occurredAt ? { created_at: input.occurredAt } : {}),
   });
   if (error) throw error;
 }
