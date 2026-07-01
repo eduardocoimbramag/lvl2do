@@ -176,7 +176,10 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
         onCompletedRef.current?.({ xp: target.xp, category: target.category, missionId: id }) ?? 0;
       creditedByMission.current[id] = credited;
     } else {
-      const credited = creditedByMission.current[id] ?? 0;
+      // XP a devolver: o crédito exato desta sessão OU, se o ref se perdeu (ex.:
+      // após recarregar a página), o XP base da missão. Isso garante que
+      // desfazer SEMPRE reverte o XP — nunca deixa o total inflado nem duplica.
+      const credited = creditedByMission.current[id] ?? target.xp;
       delete creditedByMission.current[id];
       if (credited > 0) {
         onRevertedRef.current?.({ xp: credited, category: target.category, missionId: id });
@@ -222,7 +225,8 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
           }) ?? 0;
         commitRetro({ ...retroRef.current, [key]: credited });
       } else {
-        const credited = retroRef.current[key] ?? 0;
+        // crédito exato (persistido) ou, na falta, o XP base da missão
+        const credited = retroRef.current[key] ?? target.xp;
         const next = { ...retroRef.current };
         delete next[key];
         commitRetro(next);

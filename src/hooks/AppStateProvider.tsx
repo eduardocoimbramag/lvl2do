@@ -44,6 +44,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const userId = user?.id ?? null;
 
   // persiste XP/level + contadores diários (hoje e ontem) no profile (best-effort).
+  //
+  // IMPORTANTE (robustez): as colunas yesterday_xp/yesterday_xp_date podem não
+  // existir ainda no banco (migração não rodada). Se o upsert com elas falhar,
+  // refazemos SEM esses campos — assim total_xp/daily_xp SEMPRE persistem e o
+  // XP não "some" ao recarregar. Quando as colunas existirem, tudo é gravado.
   const persistStats = useCallback(
     (s: {
       totalXp: number;
@@ -53,14 +58,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       yesterdayXp: number;
       yesterdayXpDate: string | null;
     }) => {
-      updateMyProfile({
+      const core = {
         total_xp: s.totalXp,
         level: s.level,
         daily_xp: s.dailyXp,
         daily_xp_date: s.dailyXpDate,
+      };
+      updateMyProfile({
+        ...core,
         yesterday_xp: s.yesterdayXp,
         yesterday_xp_date: s.yesterdayXpDate,
-      }).catch(() => {});
+      }).catch(() => {
+        // fallback: grava só os campos essenciais (sem os de "ontem")
+        updateMyProfile(core).catch(() => {});
+      });
     },
     [],
   );
