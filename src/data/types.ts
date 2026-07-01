@@ -69,6 +69,11 @@ export interface Mission {
   status: MissionStatus;
   xp: number;
   schedule: MissionSchedule;
+  /**
+   * Data de criação (ISO). Para missões "Hoje", define o único dia em que a
+   * missão ocorre (o "hoje" em que foi criada). Ausente em mocks antigos.
+   */
+  createdAt?: string;
 }
 
 /** XP rewarded per difficulty level. */

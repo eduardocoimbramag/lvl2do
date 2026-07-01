@@ -34,7 +34,10 @@ function sortMissions(missions: Mission[]): Mission[] {
 
 export function occursOn(mission: Mission, date: Date): boolean {
   if (mission.schedule.type === "today") {
-    return toISODate(date) === toISODate(new Date());
+    // "Hoje" ocorre APENAS no dia em que a missão foi criada. Sem createdAt
+    // (mocks antigos), cai para o dia atual como comportamento anterior.
+    const created = mission.createdAt ? new Date(mission.createdAt) : new Date();
+    return toISODate(date) === toISODate(created);
   }
   return isScheduledOn(mission.schedule, date);
 }
@@ -58,6 +61,7 @@ function rowToMission(r: MissionRow): Mission {
     status: r.status,
     xp: r.xp,
     schedule,
+    createdAt: r.created_at,
   };
 }
 
@@ -292,6 +296,7 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
         status: "done",
         xp: input.xp,
         schedule: { type: "today" },
+        createdAt: new Date().toISOString(),
       };
       setMissions((prev) => [optimistic, ...prev]);
       creditedByMission.current[tempId] = credited;
