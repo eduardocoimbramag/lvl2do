@@ -285,22 +285,38 @@ export function dayBudgetKind(targetKey: string, todayKey: string): "today" | "y
 }
 
 /**
- * Normaliza os orçamentos diários para o dia atual:
- * - se `dailyXpDate` não é hoje, zera o de hoje;
- * - se `yesterdayXpDate` não é o dia anterior a hoje, zera o de ontem.
- * Mantém o total/level intactos.
+ * Normaliza os orçamentos diários para o dia atual, migrando o orçamento de
+ * "hoje" para "ontem" na virada do dia. Mantém o total/level intactos.
+ *
+ * Regras (idempotentes):
+ * - Orçamento de ONTEM (precedência):
+ *   1. se `yesterdayXpDate` já é o dia anterior a hoje → mantém (preserva
+ *      conclusões retroativas já feitas em ontem);
+ *   2. senão, se o `dailyXp` guardado é exatamente de ontem → MIGRA esse valor
+ *      para o orçamento de ontem (antes era descartado — causava a barra
+ *      "XP do dia" de ontem aparecer zerada);
+ *   3. senão → zera (não há dado de ontem, ex.: pulou vários dias).
+ * - Orçamento de HOJE: mantém se `dailyXpDate` é hoje; senão zera.
  */
 export function normalizeDailyBudgets(userStats: UserStats, todayKey: string): UserStats {
   const yKey = previousDateKey(todayKey);
+
+  // 1) orçamento de ONTEM
+  let yesterdayXp = 0;
+  const yesterdayXpDate: string | null = yKey;
+  if (userStats.yesterdayXpDate === yKey) {
+    yesterdayXp = Math.max(0, userStats.yesterdayXp); // já correto — preserva
+  } else if (userStats.dailyXpDate === yKey) {
+    yesterdayXp = Math.max(0, userStats.dailyXp); // migra daily(ontem) → yesterday
+  }
+
+  // 2) orçamento de HOJE
   const daily =
     userStats.dailyXpDate === todayKey
       ? { dailyXp: userStats.dailyXp, dailyXpDate: todayKey }
       : { dailyXp: 0, dailyXpDate: todayKey };
-  const yest =
-    userStats.yesterdayXpDate === yKey
-      ? { yesterdayXp: userStats.yesterdayXp, yesterdayXpDate: yKey }
-      : { yesterdayXp: 0, yesterdayXpDate: yKey };
-  return { ...userStats, ...daily, ...yest };
+
+  return { ...userStats, ...daily, yesterdayXp, yesterdayXpDate };
 }
 
 /** Resultado de um ganho aplicado a um orçamento específico (hoje/ontem). */

@@ -11,7 +11,7 @@ import { PreconfiguredMissions } from "@/components/PreconfiguredMissions";
 import { Button } from "@/components/Button";
 import { categoryMeta } from "@/components/CategoryBadge";
 import { useAppMissions } from "@/hooks/AppStateProvider";
-import { CATEGORIES, type Category } from "@/data/types";
+import { CATEGORIES, toISODate, type Category, type Mission } from "@/data/types";
 import { cn } from "@/lib/utils";
 
 export default function MissionsPage() {
@@ -20,12 +20,14 @@ export default function MissionsPage() {
     missions,
     allMissions,
     toggle,
+    isDoneForDay,
     fail,
     addMission,
     updateMission,
     removeMission,
     stats,
   } = useAppMissions();
+  const todayKey = toISODate(new Date());
   const [modalOpen, setModalOpen] = useState(false);
   // categoria pré-selecionada ao abrir o modal a partir de uma coluna
   const [targetCategory, setTargetCategory] = useState<Category | undefined>(undefined);
@@ -69,6 +71,7 @@ export default function MissionsPage() {
             key={category}
             category={category}
             missions={byCategory[category]}
+            isDone={(m) => isDoneForDay(m, todayKey)}
             onToggle={toggle}
             onFail={fail}
             onAdd={() => openNewMission(category)}
@@ -100,18 +103,20 @@ export default function MissionsPage() {
 function CategoryColumn({
   category,
   missions,
+  isDone,
   onToggle,
   onFail,
   onAdd,
 }: {
   category: Category;
   missions: ReturnType<typeof useAppMissions>["missions"];
+  isDone: (m: Mission) => boolean;
   onToggle: (id: string) => void;
   onFail: (id: string) => void;
   onAdd: () => void;
 }) {
   const { icon: Icon, classes } = categoryMeta[category];
-  const done = missions.filter((m) => m.status === "done").length;
+  const done = missions.filter((m) => isDone(m)).length;
 
   return (
     <section className="card-surface flex flex-col gap-4 p-4">
@@ -138,7 +143,7 @@ function CategoryColumn({
       <motion.div layout className="flex flex-col gap-3">
         <AnimatePresence mode="popLayout">
           {missions.map((m) => (
-            <MissionCard key={m.id} mission={m} onToggle={onToggle} onFail={onFail} />
+            <MissionCard key={m.id} mission={m} done={isDone(m)} onToggle={onToggle} onFail={onFail} />
           ))}
         </AnimatePresence>
 

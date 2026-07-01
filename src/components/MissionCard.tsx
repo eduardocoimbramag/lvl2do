@@ -9,6 +9,11 @@ import { cn } from "@/lib/utils";
 
 interface MissionCardProps {
   mission: Mission;
+  /**
+   * Se a missão está concluída NESTE dia. Quando omitido, cai no status global
+   * (compatibilidade). Recorrentes usam a conclusão por-dia (ver isDoneForDay).
+   */
+  done?: boolean;
   /** conclui a missão (ganha XP) — alterna concluída/pendente */
   onToggle?: (id: string) => void;
   /** marca como não concluída (sem XP) — alterna falhada/pendente */
@@ -20,8 +25,8 @@ interface MissionCardProps {
  * Concluir/não concluir altera o estado VISUAL do card localmente
  * (a persistência será adicionada futuramente com banco de dados).
  */
-export function MissionCard({ mission, onToggle, onFail }: MissionCardProps) {
-  const done = mission.status === "done";
+export function MissionCard({ mission, done: doneProp, onToggle, onFail }: MissionCardProps) {
+  const done = doneProp ?? mission.status === "done";
   const failed = mission.status === "failed";
   const finished = done || failed;
 

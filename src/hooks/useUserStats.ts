@@ -53,16 +53,6 @@ interface UseUserStatsOptions {
 }
 
 /**
- * Normaliza o contador diário vindo do banco: se a data não é a de hoje, o
- * orçamento diário recomeça em 0 (novo dia local).
- */
-function seedDaily(seedDailyXp: number, seedDailyXpDate: string | null | undefined, todayKey: string) {
-  return seedDailyXpDate === todayKey
-    ? { dailyXp: Math.max(0, seedDailyXp), dailyXpDate: todayKey }
-    : { dailyXp: 0, dailyXpDate: todayKey };
-}
-
-/**
  * Progressão do usuário (XP/Level + contador diário), tudo vindo do banco
  * (Supabase) via `seed*` e persistido a cada mudança. As regras de XP vivem em
  * `@/lib/xp-system`.
@@ -77,18 +67,18 @@ export function useUserStats({
 }: UseUserStatsOptions) {
   const [stats, setStats] = useState<UserStats>(() => {
     const todayKey = getLocalDateKey(new Date());
-    const daily = seedDaily(seedDailyXp, seedDailyXpDate, todayKey);
+    // valores CRUS do banco — a normalização decide migração/zeragem de dia.
     const seeded: UserStats = {
       totalXp: seedTotalXp,
       level: calculateLevelFromXp(seedTotalXp),
-      dailyXp: daily.dailyXp,
-      dailyXpDate: daily.dailyXpDate,
+      dailyXp: Math.max(0, seedDailyXp),
+      dailyXpDate: seedDailyXpDate ?? todayKey,
       yesterdayXp: Math.max(0, seedYesterdayXp),
       yesterdayXpDate: seedYesterdayXpDate,
       lastMissionCompletedDate: null,
       lastXpLossCheckDate: todayKey,
     };
-    // garante que os orçamentos de hoje/ontem batem com o dia atual
+    // migra daily→yesterday na virada e alinha os orçamentos ao dia atual
     return normalizeDailyBudgets(seeded, todayKey);
   });
   const [feedback, setFeedback] = useState<StatsFeedback | null>(null);
@@ -105,14 +95,14 @@ export function useUserStats({
   useEffect(() => {
     if (dirty.current) return;
     const todayKey = getLocalDateKey(new Date());
-    const daily = seedDaily(seedDailyXp, seedDailyXpDate, todayKey);
+    // valores CRUS do banco (sem pré-zerar) para a normalização poder migrar
     const next = normalizeDailyBudgets(
       {
         ...statsRef.current,
         totalXp: seedTotalXp,
         level: calculateLevelFromXp(seedTotalXp),
-        dailyXp: daily.dailyXp,
-        dailyXpDate: daily.dailyXpDate,
+        dailyXp: Math.max(0, seedDailyXp),
+        dailyXpDate: seedDailyXpDate ?? todayKey,
         yesterdayXp: Math.max(0, seedYesterdayXp),
         yesterdayXpDate: seedYesterdayXpDate,
       },
@@ -120,6 +110,25 @@ export function useUserStats({
     );
     statsRef.current = next;
     setStats(next);
+
+    // Se a virada do dia migrou/zerou orçamentos (o resultado difere do banco),
+    // persiste UMA vez — senão, ao abrir em D+1 sem concluir nada, a migração
+    // se perderia (o commit só dispara ao concluir/desfazer). Não marca dirty.
+    const changed =
+      next.dailyXp !== seedDailyXp ||
+      next.dailyXpDate !== seedDailyXpDate ||
+      next.yesterdayXp !== seedYesterdayXp ||
+      next.yesterdayXpDate !== seedYesterdayXpDate;
+    if (changed) {
+      persistRef.current?.({
+        totalXp: next.totalXp,
+        level: next.level,
+        dailyXp: next.dailyXp,
+        dailyXpDate: next.dailyXpDate,
+        yesterdayXp: next.yesterdayXp,
+        yesterdayXpDate: next.yesterdayXpDate,
+      });
+    }
   }, [seedTotalXp, seedDailyXp, seedDailyXpDate, seedYesterdayXp, seedYesterdayXpDate]);
 
   const commit = useCallback((value: UserStats) => {

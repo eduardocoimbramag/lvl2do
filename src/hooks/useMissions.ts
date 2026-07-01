@@ -42,6 +42,16 @@ export function occursOn(mission: Mission, date: Date): boolean {
   return isScheduledOn(mission.schedule, date);
 }
 
+/**
+ * Missão recorrente = repete em vários dias (semanal ou datas específicas).
+ * A conclusão de recorrentes é rastreada POR DIA (mapa retroativo), para que
+ * ao virar o dia elas voltem a "não concluída" automaticamente — sem depender
+ * do único campo `status` global do banco.
+ */
+export function isRecurring(mission: Mission): boolean {
+  return mission.schedule.type === "weekly" || mission.schedule.type === "dates";
+}
+
 /** Linha do banco → Mission do app. */
 function rowToMission(r: MissionRow): Mission {
   const schedule: MissionSchedule =
@@ -62,6 +72,7 @@ function rowToMission(r: MissionRow): Mission {
     xp: r.xp,
     schedule,
     createdAt: r.created_at,
+    completedAt: r.completed_at ?? undefined,
   };
 }
 
@@ -165,54 +176,18 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
     };
   }, [userId]);
 
-  /** Alterna concluída/pendente, creditando/devolvendo XP. */
-  const toggle = useCallback((id: string) => {
-    const target = missionsRef.current.find((m) => m.id === id);
-    if (!target) return;
-    const isUndo = target.status === "done";
-    const newStatus: MissionStatus = isUndo ? "pending" : "done";
-
-    setMissions((prev) => prev.map((m) => (m.id === id ? { ...m, status: newStatus } : m)));
-    updateMissionStatus(id, newStatus).catch((e) => console.error(e));
-
-    if (!isUndo) {
-      const credited =
-        onCompletedRef.current?.({ xp: target.xp, category: target.category, missionId: id }) ?? 0;
-      creditedByMission.current[id] = credited;
-    } else {
-      // XP a devolver: o crédito exato desta sessão OU, se o ref se perdeu (ex.:
-      // após recarregar a página), o XP base da missão. Isso garante que
-      // desfazer SEMPRE reverte o XP — nunca deixa o total inflado nem duplica.
-      const credited = creditedByMission.current[id] ?? target.xp;
-      delete creditedByMission.current[id];
-      if (credited > 0) {
-        onRevertedRef.current?.({ xp: credited, category: target.category, missionId: id });
-      }
-    }
-  }, []);
-
-  /** Chave de conclusão retroativa (missão + dia). */
+  /** Chave de conclusão por-dia (missão + dia). */
   const retroKeyOf = (id: string, dateKey: string) => `${id}@${dateKey}`;
 
-  /** Uma (missão, dia) já foi concluída retroativamente? */
-  const isCompletedForDay = useCallback(
-    (id: string, dateKey: string) => retroKeyOf(id, dateKey) in retroRef.current,
-    [],
-  );
-
   /**
-   * Conclui/desfaz uma missão PARA UM DIA específico (usado pelo calendário).
-   * - Hoje  → delega ao toggle normal (status real + orçamento de hoje).
-   * - Ontem → registra a conclusão retroativa e credita/reverte no orçamento de
-   *   ontem, sem alterar o status global da missão.
+   * Conclui/desfaz uma missão registrando a conclusão POR DIA (mapa retro), sem
+   * alterar o `status` global. Credita/reverte o XP no orçamento do `dateKey`
+   * (via targetDateKey). Usado para recorrentes (qualquer dia) e para o
+   * calendário. Quando `dateKey` é hoje, o crédito cai no orçamento de hoje e
+   * conta streak — idêntico ao fluxo antigo, só muda ONDE guardamos o "feito".
    */
-  const toggleForDay = useCallback(
+  const toggleRetroForDay = useCallback(
     (id: string, dateKey: string) => {
-      const todayKey = toISODate(new Date());
-      if (dateKey === todayKey) {
-        toggle(id);
-        return;
-      }
       const target = missionsRef.current.find((m) => m.id === id);
       if (!target) return;
 
@@ -244,7 +219,93 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
         }
       }
     },
-    [toggle, commitRetro],
+    [commitRetro],
+  );
+
+  /**
+   * Alterna concluída/pendente (botão do card, dia de hoje).
+   * - Recorrente (weekly/dates) → conclusão POR DIA (retro), para resetar no
+   *   dia seguinte. NÃO altera o status global.
+   * - "Uma vez" (today) / foco  → status global no banco (comportamento antigo).
+   */
+  const toggle = useCallback(
+    (id: string) => {
+      const target = missionsRef.current.find((m) => m.id === id);
+      if (!target) return;
+
+      if (isRecurring(target)) {
+        toggleRetroForDay(id, toISODate(new Date()));
+        return;
+      }
+
+      const isUndo = target.status === "done";
+      const newStatus: MissionStatus = isUndo ? "pending" : "done";
+      const nowISO = new Date().toISOString();
+
+      setMissions((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? { ...m, status: newStatus, completedAt: isUndo ? null : nowISO }
+            : m,
+        ),
+      );
+      updateMissionStatus(id, newStatus).catch((e) => console.error(e));
+
+      if (!isUndo) {
+        const credited =
+          onCompletedRef.current?.({ xp: target.xp, category: target.category, missionId: id }) ?? 0;
+        creditedByMission.current[id] = credited;
+      } else {
+        // XP a devolver: crédito exato desta sessão OU, se o ref se perdeu (ex.:
+        // após recarregar), o XP base da missão — garante que desfazer SEMPRE
+        // reverte, sem deixar o total inflado nem duplicar.
+        const credited = creditedByMission.current[id] ?? target.xp;
+        delete creditedByMission.current[id];
+        if (credited > 0) {
+          onRevertedRef.current?.({ xp: credited, category: target.category, missionId: id });
+        }
+      }
+    },
+    [toggleRetroForDay],
+  );
+
+  /** Uma (missão, dia) já foi concluída no mapa por-dia (retro)? */
+  const isCompletedForDay = useCallback(
+    (id: string, dateKey: string) => retroKeyOf(id, dateKey) in retroRef.current,
+    [],
+  );
+
+  /**
+   * A missão está concluída NAQUELE dia? Regra unificada de exibição:
+   * - recorrente → consulta o mapa por-dia (retro);
+   * - "uma vez"/foco → usa o status global (só faz sentido no dia dela).
+   */
+  const isDoneForDay = useCallback(
+    (mission: Mission, dateKey: string) =>
+      isRecurring(mission)
+        ? retroKeyOf(mission.id, dateKey) in retroRef.current
+        : mission.status === "done",
+    [],
+  );
+
+  /**
+   * Conclui/desfaz uma missão PARA UM DIA específico (usado pelo calendário).
+   * - Hoje + "uma vez" → toggle normal (status real).
+   * - Recorrente (qualquer dia) ou dia passado → conclusão por-dia (retro),
+   *   creditando/revertendo no orçamento daquele dia.
+   */
+  const toggleForDay = useCallback(
+    (id: string, dateKey: string) => {
+      const target = missionsRef.current.find((m) => m.id === id);
+      if (!target) return;
+      const todayKey = toISODate(new Date());
+      if (dateKey === todayKey && !isRecurring(target)) {
+        toggle(id);
+        return;
+      }
+      toggleRetroForDay(id, dateKey);
+    },
+    [toggle, toggleRetroForDay],
   );
 
   /** Marca como falhada/pendente (sem XP). */
@@ -383,13 +444,16 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
   }, [missions]);
 
   const stats = useMemo(() => {
-    const done = todayMissions.filter((m) => m.status === "done");
+    const todayKey = toISODate(new Date());
+    const done = todayMissions.filter((m) => isDoneForDay(m, todayKey));
     return {
       total: todayMissions.length,
       done: done.length,
       xpEarned: done.reduce((sum, m) => sum + m.xp, 0),
     };
-  }, [todayMissions]);
+    // `retro` entra nas deps para recalcular quando uma recorrente é concluída
+    // por-dia (isDoneForDay lê o mapa retro).
+  }, [todayMissions, retro, isDoneForDay]);
 
   return {
     missions: todayMissions,
@@ -397,6 +461,7 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
     toggle,
     toggleForDay,
     isCompletedForDay,
+    isDoneForDay,
     fail,
     addMission,
     addCompletedMission,

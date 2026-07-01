@@ -16,13 +16,13 @@ import { useProfileIdentity } from "@/hooks/useProfileIdentity";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { useCharacterSkin } from "@/hooks/useCharacterSkin";
 import { isCharacterClass } from "@/data/characterClasses";
-import { CATEGORIES } from "@/data/types";
+import { CATEGORIES, toISODate } from "@/data/types";
 import { userProfile } from "@/data/mockStats";
 
 export default function DashboardPage() {
   // estado global compartilhado — concluir missão credita XP em tempo real
   const { progress, daily, streak } = useAppStats();
-  const { missions, toggle } = useAppMissions();
+  const { missions, toggle, isDoneForDay } = useAppMissions();
   const { characterClass } = useCharacterClass();
   const { resolveImage } = useCharacterSkin();
   const { displayName } = useProfileIdentity();
@@ -35,9 +35,12 @@ export default function DashboardPage() {
     ? resolveImage(characterClass, progress.level)
     : null;
 
-  // missões pendentes de hoje (para o bloco "Missões pendentes")
-  const pendingMissions = missions.filter((m) => m.status === "pending");
-  const doneToday = missions.filter((m) => m.status === "done").length;
+  const todayKey = toISODate(new Date());
+  // missões pendentes de hoje = não concluídas hoje e não falhadas
+  const pendingMissions = missions.filter(
+    (m) => !isDoneForDay(m, todayKey) && m.status !== "failed",
+  );
+  const doneToday = missions.filter((m) => isDoneForDay(m, todayKey)).length;
 
   // conclusão por categoria (hoje) + total — para o card "Conclusão do dia"
   const completionRows = useMemo(() => {
@@ -46,13 +49,13 @@ export default function DashboardPage() {
     return [
       ...CATEGORIES.map((category) => {
         const inCat = missions.filter((m) => m.category === category);
-        const done = inCat.filter((m) => m.status === "done").length;
+        const done = inCat.filter((m) => isDoneForDay(m, todayKey)).length;
         const value = inCat.length === 0 ? 0 : Math.round((done / inCat.length) * 100);
         return { label: category, value };
       }),
       { label: "Total", value: total },
     ];
-  }, [missions, doneToday]);
+  }, [missions, doneToday, isDoneForDay, todayKey]);
 
   return (
     <>
@@ -134,7 +137,7 @@ export default function DashboardPage() {
         {pendingMissions.length > 0 ? (
           <AnimatedGrid className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {pendingMissions.map((m) => (
-              <MissionCard key={m.id} mission={m} onToggle={toggle} />
+              <MissionCard key={m.id} mission={m} done={false} onToggle={toggle} />
             ))}
           </AnimatedGrid>
         ) : (

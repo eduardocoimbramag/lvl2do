@@ -74,6 +74,8 @@ export interface Mission {
    * missão ocorre (o "hoje" em que foi criada). Ausente em mocks antigos.
    */
   createdAt?: string;
+  /** Data/hora (ISO) da última conclusão (status global), ou null. */
+  completedAt?: string | null;
 }
 
 /** XP rewarded per difficulty level. */

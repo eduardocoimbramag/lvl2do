@@ -49,7 +49,7 @@ interface FutureMissionsProps {
  * a barra de XP do dia (X/300) para hoje e ontem.
  */
 export function FutureMissions({ missions }: FutureMissionsProps) {
-  const { toggleForDay, isCompletedForDay } = useAppMissions();
+  const { toggleForDay, isDoneForDay } = useAppMissions();
   const { dailyForDate } = useAppStats();
 
   const [open, setOpen] = useState(false);
@@ -80,11 +80,10 @@ export function FutureMissions({ missions }: FutureMissionsProps) {
   // barra de XP do dia selecionado (hoje/ontem); null nos demais dias
   const dayBudget = selectedKey ? dailyForDate(selectedKey) : null;
 
-  /** Uma missão está concluída neste dia? (hoje usa status; ontem usa retro) */
+  /** Uma missão está concluída neste dia? (recorrente → por-dia; "uma vez" → status) */
   function doneForSelected(m: Mission): boolean {
     if (!selectedKey) return false;
-    if (isToday) return m.status === "done";
-    return isCompletedForDay(m.id, selectedKey);
+    return isDoneForDay(m, selectedKey);
   }
 
   return (
