@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { LogOut } from "lucide-react";
 import { Logo } from "./Logo";
 import { NotificationsBell } from "./NotificationsBell";
-import { useAuth } from "./AuthProvider";
+import { AccountMenu } from "./AccountMenu";
+import { SettingsModal } from "./SettingsModal";
 import { appNav } from "@/data/navigation";
 import { cn } from "@/lib/utils";
 
@@ -16,15 +17,7 @@ import { cn } from "@/lib/utils";
  */
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, profile, signOut } = useAuth();
-
-  const displayName = profile?.nickname || profile?.name || user?.email || "Conta";
-
-  async function handleSignOut() {
-    await signOut();
-    router.replace("/login");
-  }
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-white/[0.06] bg-ink-card/60 backdrop-blur-xl md:flex lg:w-72">
@@ -61,27 +54,15 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Card de usuário — avatar (inicial) + nome + sino + sair */}
-      <div className="space-y-2 border-t border-white/[0.06] p-4">
-        <div className="flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-gradient font-display text-sm font-bold text-white">
-            {displayName.charAt(0).toUpperCase()}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-soft">
-            {displayName}
-            {profile?.tag && <span className="text-muted">#{profile.tag}</span>}
-          </span>
+      {/* Rodapé — sino de notificações + menu do usuário */}
+      <div className="border-t border-white/[0.06] p-4">
+        <div className="mb-2 flex justify-end">
           <NotificationsBell />
         </div>
-
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="flex w-full items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium text-muted transition-colors hover:bg-white/5 hover:text-soft"
-        >
-          <LogOut size={16} /> Sair
-        </button>
+        <AccountMenu onOpenSettings={() => setSettingsOpen(true)} />
       </div>
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </aside>
   );
 }

@@ -13,19 +13,31 @@ interface FocusRingProps {
   label?: string;
   /** estado visual (pausado esmaece levemente). */
   paused?: boolean;
+  /** diâmetro do anel em px (padrão 260). */
+  size?: number;
+  /** estado ocioso (antes de iniciar) — mostra "Pronto" mais discreto. */
+  idle?: boolean;
   className?: string;
 }
 
-const SIZE = 280;
 const STROKE = 14;
-const RADIUS = (SIZE - STROKE) / 2;
-const CIRC = 2 * Math.PI * RADIUS;
 
 /**
  * Anel circular de progresso do Modo Foco. O arco preenche conforme o tempo
  * passa (gradiente da marca), com o tempo restante grande no centro.
  */
-export function FocusRing({ remaining, progress, label, paused, className }: FocusRingProps) {
+export function FocusRing({
+  remaining,
+  progress,
+  label,
+  paused,
+  size = 260,
+  idle,
+  className,
+}: FocusRingProps) {
+  const SIZE = size;
+  const RADIUS = (SIZE - STROKE) / 2;
+  const CIRC = 2 * Math.PI * RADIUS;
   const dashOffset = CIRC * (1 - progress);
 
   return (
@@ -74,7 +86,8 @@ export function FocusRing({ remaining, progress, label, paused, className }: Foc
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span
           className={cn(
-            "font-display text-5xl font-bold tabular-nums tracking-tight text-soft transition-opacity sm:text-6xl",
+            "font-display text-5xl font-bold tabular-nums tracking-tight transition-opacity sm:text-6xl",
+            idle ? "text-soft/70" : "text-soft",
             paused && "opacity-50",
           )}
         >
