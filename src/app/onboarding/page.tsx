@@ -11,17 +11,20 @@ import { ClassSelectGrid } from "@/components/ClassSelectGrid";
 import { IdentityFields } from "@/components/IdentityFields";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { useProfileIdentity } from "@/hooks/useProfileIdentity";
+import { useAccessGate } from "@/hooks/useAccessGate";
 import { suggestTag, validateIdentity } from "@/data/identity";
 import { type CharacterClass } from "@/data/characterClasses";
 
 /**
  * /onboarding — primeiro login: o jogador define o NOME (nickname + hashtag)
- * e escolhe a CLASSE. Quem já tem classe é mandado ao dashboard.
+ * e escolhe a CLASSE. Ao concluir, segue para o /paywall (etapa de assinatura).
+ * Quem já tem classe vai para o app (se tiver acesso) ou para o paywall.
  */
 export default function OnboardingPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn, characterClass, setCharacterClass } = useCharacterClass();
   const { fallbackName, setIdentity } = useProfileIdentity();
+  const { hasAccess } = useAccessGate();
 
   const [selected, setSelected] = useState<CharacterClass | null>(null);
   const [nickname, setNickname] = useState("");
@@ -31,14 +34,15 @@ export default function OnboardingPage() {
   const initRef = useRef(false);
 
   // Já escolheu (ou não está logado) → não fica preso na tela de onboarding.
+  // Com onboarding pronto: vai ao app se tiver acesso; senão, ao paywall.
   useEffect(() => {
     if (!isLoaded) return;
     if (!isSignedIn) {
       router.replace("/login");
     } else if (characterClass) {
-      router.replace("/dashboard");
+      router.replace(hasAccess ? "/dashboard" : "/paywall");
     }
-  }, [isLoaded, isSignedIn, characterClass, router]);
+  }, [isLoaded, isSignedIn, characterClass, hasAccess, router]);
 
   // Sugere nickname (a partir do nome do Clerk) + hashtag livre, uma única vez.
   useEffect(() => {
@@ -59,7 +63,8 @@ export default function OnboardingPage() {
     try {
       await setIdentity(nickname, tag);
       await setCharacterClass(selected!);
-      router.replace("/dashboard");
+      // Após o onboarding, segue para a etapa de assinatura (paywall).
+      router.replace("/paywall?source=onboarding");
     } catch (err) {
       console.error("Falha ao confirmar onboarding:", err);
       const e = err as { code?: string; message?: string };

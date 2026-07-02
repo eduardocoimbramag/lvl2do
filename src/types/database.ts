@@ -48,6 +48,20 @@ export type ProfileRow = {
   country: string;
   /** saldo de cristais de energia (loja). */
   crystals: number;
+
+  /* ------------------------------------------------------------------ */
+  /*  Assinatura (FUTURO — RevenueCat).                                  */
+  /*  Opcionais: as colunas ainda NÃO existem no banco. Não assuma que   */
+  /*  vêm preenchidas — sempre trate com fallback seguro.                */
+  /* ------------------------------------------------------------------ */
+  /** plano atual (ex.: "pro") ou null. */
+  plan?: string | null;
+  /** status da assinatura (ex.: "active" | "trialing" | "expired") ou null. */
+  subscription_status?: string | null;
+  /** validade da assinatura/trial (ISO) ou null. */
+  subscription_expires_at?: string | null;
+  /** último dia ("YYYY-MM-DD") em que um cristal liberou acesso, ou null. */
+  last_crystal_access_date?: string | null;
   /** código único de indicação do usuário. */
   referral_code: string | null;
   /** XP acumulado no ano de `year_xp_year` (ranking anual). */

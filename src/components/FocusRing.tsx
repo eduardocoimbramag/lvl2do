@@ -40,6 +40,16 @@ export function FocusRing({
   const CIRC = 2 * Math.PI * RADIUS;
   const dashOffset = CIRC * (1 - progress);
 
+  // Dimensiona a fonte pelo comprimento do texto para que "01:00:00" (HH:MM:SS)
+  // e "15:00" (MM:SS) fiquem proporcionais e NUNCA transbordem o anel.
+  // Com tabular-nums cada caractere ≈ 0.58em; usamos ~78% do diâmetro interno.
+  const clock = formatClock(remaining);
+  const innerWidth = SIZE - STROKE * 2; // espaço útil dentro do trilho
+  const fontSize = Math.min(
+    SIZE * 0.24, // teto: textos curtos não ficam gigantes
+    (innerWidth * 0.82) / (clock.length * 0.58),
+  );
+
   return (
     <div className={cn("relative", className)} style={{ width: SIZE, height: SIZE }}>
       <svg
@@ -83,15 +93,16 @@ export function FocusRing({
       </svg>
 
       {/* tempo + rótulo no centro */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-4">
         <span
+          style={{ fontSize, lineHeight: 1 }}
           className={cn(
-            "font-display text-5xl font-bold tabular-nums tracking-tight transition-opacity sm:text-6xl",
+            "font-display font-bold tabular-nums tracking-tight transition-opacity",
             idle ? "text-soft/70" : "text-soft",
             paused && "opacity-50",
           )}
         >
-          {formatClock(remaining)}
+          {clock}
         </span>
         {label && (
           <span className="mt-2 max-w-[12rem] truncate text-center text-sm text-muted">
