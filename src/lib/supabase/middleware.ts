@@ -6,6 +6,14 @@ import { canAccessApp } from "@/lib/access/accessRules";
 const PUBLIC_PATHS = ["/login", "/register", "/auth"];
 
 /**
+ * Endpoints de webhook (ex.: RevenueCat). Não têm sessão de usuário e se
+ * protegem por header (Authorization). Nunca devem redirecionar para /login.
+ */
+function isWebhook(pathname: string): boolean {
+  return pathname.startsWith("/api/webhooks/");
+}
+
+/**
  * Prefixos do app interno que exigem ACESSO (assinatura/cristal). Ficam de fora
  * `/onboarding` e `/paywall` (etapas anteriores ao acesso) para evitar loops.
  */
@@ -36,6 +44,12 @@ function needsAccess(pathname: string): boolean {
  * Quem não está logado e tenta acessar rota protegida é mandado para /login.
  */
 export async function updateSession(request: NextRequest) {
+  // Defesa em profundidade: webhooks passam direto (sem auth/redirect). Mesmo
+  // que o matcher já os exclua, garantimos aqui que nunca vão para /login.
+  if (isWebhook(request.nextUrl.pathname)) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
