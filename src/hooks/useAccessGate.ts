@@ -9,7 +9,12 @@ import {
   type AccessData,
   type AccessReason,
 } from "@/lib/access/accessRules";
-import { startRevenueCatCheckout, type CheckoutResult } from "@/lib/payments/revenuecat";
+import {
+  startRevenueCatCheckout,
+  ensureConfigured,
+  type CheckoutResult,
+} from "@/lib/payments/revenuecat";
+import { createClient } from "@/lib/supabase/client";
 import { getLocalDateKey } from "@/lib/xp-system";
 import type { ProfileRow } from "@/types/database";
 
@@ -73,7 +78,12 @@ function subscriptionFromProfile(profile: ProfileRow | null): Pick<
  * real não existe. Em produção, a simulação é ignorada.
  */
 export function useAccessGate() {
-  const { profile, loading } = useAuth();
+  const { user, profile, loading, refreshProfile } = useAuth();
+
+  // configura o RevenueCat com o id do usuário (no-op sem key/SSR)
+  useEffect(() => {
+    if (user?.id) void ensureConfigured(user.id);
+  }, [user?.id]);
 
   // estado de dev (simulação) — hidratado no cliente
   const [dev, setDev] = useState<DevAccessState>({});
@@ -125,34 +135,44 @@ export function useAccessGate() {
   /**
    * Libera o acesso de HOJE usando 1 cristal.
    *
-   * TODO(backend): trocar por uma RPC atômica `consume_daily_crystal` que
-   * debite 1 cristal e grave `last_crystal_access_date = hoje` no banco (com
-   * checagem para não cobrar duas vezes no mesmo dia). Por enquanto, só simula
-   * a liberação do dia no localStorage (NÃO muta cristais reais).
+   * Chama a RPC atômica `consume_daily_crystal` (debita 1 cristal e grava
+   * `last_crystal_access_date = hoje`, idempotente por dia) e recarrega o
+   * profile — o AccessGuard reavalia e libera o app. Em DEV, se a RPC falhar
+   * (ex.: banco sem a função), cai numa simulação local para não travar o teste.
    */
-  const useCrystalForToday = useCallback(() => {
-    if (!IS_DEV) {
-      // TODO: chamar RPC consume_daily_crystal e refreshProfile.
-      console.warn("[useAccessGate] consumo de cristal ainda não implementado (backend).");
+  const useCrystalForToday = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("consume_daily_crystal");
+      if (error) throw error;
+      await refreshProfile();
       return;
+    } catch (e) {
+      if (IS_DEV) {
+        // fallback de desenvolvimento (não muta cristais reais)
+        console.warn("[useAccessGate] RPC consume_daily_crystal indisponível — simulando (dev).", e);
+        const today = getLocalDateKey(new Date());
+        setDev((prev) => {
+          const next = { ...prev, crystalDay: today };
+          saveDevAccess(next);
+          return next;
+        });
+        return;
+      }
+      console.error("[useAccessGate] falha ao consumir cristal:", e);
     }
-    const today = getLocalDateKey(new Date());
-    setDev((prev) => {
-      const next = { ...prev, crystalDay: today };
-      saveDevAccess(next);
-      return next;
-    });
-  }, []);
+  }, [refreshProfile]);
 
   /**
-   * Inicia o checkout de assinatura.
-   *
-   * TODO(RevenueCat): plugar o fluxo real. Hoje delega ao placeholder, que não
-   * cobra nada e retorna estado controlado.
+   * Inicia o checkout de assinatura (RevenueCat). Após uma compra bem-sucedida,
+   * recarrega o profile — o webhook grava o status e o AccessGuard libera. O
+   * status "not-implemented" volta quando o RevenueCat ainda não está configurado.
    */
   const startCheckout = useCallback(async (): Promise<CheckoutResult> => {
-    return startRevenueCatCheckout();
-  }, []);
+    const result = await startRevenueCatCheckout();
+    if (result.ok) await refreshProfile();
+    return result;
+  }, [refreshProfile]);
 
   /** [DEV] Simula assinatura Pro ativa (para testar o app interno). */
   const simulateProAccess = useCallback(() => {
