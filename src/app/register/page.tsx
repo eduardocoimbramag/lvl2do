@@ -8,6 +8,43 @@ import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/Button";
 import { createClient } from "@/lib/supabase/client";
+import type { AuthError } from "@supabase/supabase-js";
+
+/**
+ * Traduz o erro do Supabase signUp para uma mensagem clara em pt-BR.
+ * Usa `code`/`status`/`message` para distinguir os casos mais comuns.
+ */
+function messageForSignUpError(error: AuthError): string {
+  const code = (error as { code?: string }).code ?? "";
+  const msg = error.message?.toLowerCase() ?? "";
+
+  // limite de envio de e-mail do Supabase (servidor SMTP padrão é bem restrito)
+  if (
+    error.status === 429 ||
+    code === "over_email_send_rate_limit" ||
+    msg.includes("rate limit") ||
+    msg.includes("email rate")
+  ) {
+    return "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente de novo (limite de envio de e-mails).";
+  }
+  // e-mail já cadastrado
+  if (code === "user_already_exists" || msg.includes("already")) {
+    return "Este e-mail já está cadastrado. Tente fazer login.";
+  }
+  // senha fraca
+  if (code === "weak_password" || msg.includes("password")) {
+    return "A senha é muito fraca. Use ao menos 6 caracteres.";
+  }
+  // e-mail inválido
+  if (code === "email_address_invalid" || msg.includes("invalid") && msg.includes("email")) {
+    return "E-mail inválido. Verifique e tente novamente.";
+  }
+  // cadastro desativado no projeto
+  if (code === "signup_disabled" || msg.includes("signups not allowed") || msg.includes("disabled")) {
+    return "Cadastros estão temporariamente desativados. Tente novamente mais tarde.";
+  }
+  return "Não foi possível criar a conta. Tente novamente.";
+}
 
 /** /register — cadastro por e-mail + senha (Supabase Auth). */
 export default function RegisterPage() {
@@ -47,11 +84,7 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      setError(
-        error.message.includes("already")
-          ? "Este e-mail já está cadastrado."
-          : "Não foi possível criar a conta. Tente novamente.",
-      );
+      setError(messageForSignUpError(error));
       setLoading(false);
       return;
     }
