@@ -87,7 +87,7 @@ export default function LandingPage() {
               title="Um plano, evolução sem limites"
               subtitle="Tudo desbloqueado. Comece com 14 dias grátis e cancele quando quiser."
             />
-            <ProShowcase />
+            <ProShowcase className="mt-14" />
           </div>
         </section>
 

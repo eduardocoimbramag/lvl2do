@@ -23,7 +23,7 @@ export function PaywallPageShell() {
           Seu personagem está pronto. Agora escolha como deseja continuar sua jornada.
         </motion.p>
 
-        <PaywallModal />
+        <PaywallModal className="w-full" />
       </main>
     </>
   );

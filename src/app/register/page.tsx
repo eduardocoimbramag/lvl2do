@@ -46,12 +46,18 @@ function messageForSignUpError(error: AuthError): string {
   return "Não foi possível criar a conta. Tente novamente.";
 }
 
+/** Impede colar/soltar texto nos campos de senha (obriga digitar). */
+function blockPaste(e: React.ClipboardEvent<HTMLInputElement> | React.DragEvent<HTMLInputElement>) {
+  e.preventDefault();
+}
+
 /** /register — cadastro por e-mail + senha (Supabase Auth). */
 export default function RegisterPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -68,6 +74,10 @@ export default function RegisterPage() {
     if (loading) return;
     if (password.length < 6) {
       setError("A senha precisa ter ao menos 6 caracteres.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("As senhas não coincidem. Digite a mesma senha nos dois campos.");
       return;
     }
     setLoading(true);
@@ -167,10 +177,30 @@ export default function RegisterPage() {
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onPaste={blockPaste}
+                    onDrop={blockPaste}
                     placeholder="Senha (mín. 6 caracteres)"
                     className="w-full bg-transparent py-2.5 text-sm text-soft placeholder:text-muted/60 focus:outline-none"
                   />
                 </Field>
+                <Field icon={Lock}>
+                  <input
+                    type="password"
+                    required
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onPaste={blockPaste}
+                    onDrop={blockPaste}
+                    placeholder="Confirmar senha"
+                    className="w-full bg-transparent py-2.5 text-sm text-soft placeholder:text-muted/60 focus:outline-none"
+                  />
+                </Field>
+
+                {/* feedback ao vivo de coincidência (só quando o usuário começou a confirmar) */}
+                {confirmPassword.length > 0 && confirmPassword !== password && (
+                  <p className="text-xs text-amber-300/90">As senhas ainda não coincidem.</p>
+                )}
 
                 {refCode && (
                   <p className="inline-flex items-center gap-1.5 rounded-lg border border-brand/20 bg-brand/10 px-3 py-2 text-xs text-brand-light">
