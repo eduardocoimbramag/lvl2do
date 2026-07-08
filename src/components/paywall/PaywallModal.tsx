@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Gem, Loader2, Wand2, Check, RotateCcw } from "lucide-react";
 import { ProShowcase, type ShowcaseCta } from "@/components/ProShowcase";
 import { useAccessGate } from "@/hooks/useAccessGate";
@@ -14,6 +15,7 @@ import { proPlan } from "@/data/landingContent";
  * Abaixo, o texto explicativo de cristais e as dev tools (só fora de produção).
  */
 export function PaywallModal({ className }: { className?: string }) {
+  const router = useRouter();
   const {
     crystals,
     canUseCrystal,
@@ -25,15 +27,25 @@ export function PaywallModal({ className }: { className?: string }) {
   } = useAccessGate();
 
   const [loadingCheckout, setLoadingCheckout] = useState(false);
-  // mensagem específica do último checkout (erro/cancelamento), ou null
+  // mensagem específica do último checkout (erro/cancelamento/já-ativa), ou null
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
 
   async function handleCheckout() {
     setLoadingCheckout(true);
     setCheckoutMessage(null);
     const result = await startCheckout();
+
+    // sucesso (compra nova OU produto já ativo) → informa e vai ao app.
+    if (result.ok) {
+      if (result.status === "already-active") {
+        setCheckoutMessage(result.message ?? "Sua assinatura já está ativa. Redirecionando...");
+      }
+      // o hook já atualizou entitlement/profile → hasAccess libera; leva ao app.
+      router.replace("/dashboard");
+      return;
+    }
+
     setLoadingCheckout(false);
-    if (result.ok) return; // sucesso → o hook recarrega o profile e o guard libera
     // mostra o MOTIVO real (nunca um genérico sem contexto)
     setCheckoutMessage(result.message ?? "Não foi possível iniciar o checkout.");
   }

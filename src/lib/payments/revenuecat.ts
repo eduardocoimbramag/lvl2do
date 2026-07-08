@@ -30,7 +30,7 @@ async function loadPurchases() {
 /** Resultado de uma tentativa de checkout (formato estável para a UI). */
 export interface CheckoutResult {
   ok: boolean;
-  status: "not-implemented" | "cancelled" | "purchased" | "error";
+  status: "not-implemented" | "cancelled" | "purchased" | "already-active" | "error";
   message?: string;
 }
 
@@ -110,6 +110,16 @@ export async function startRevenueCatCheckout(): Promise<CheckoutResult> {
     }
     const rc = Purchases.getSharedInstance();
 
+    // 1.5) JÁ tem Pro ativo? Nunca tenta comprar de novo — sinaliza já-ativo.
+    const info0 = await rc.getCustomerInfo();
+    if (info0.entitlements.active[PRO_ENTITLEMENT]) {
+      return {
+        ok: true,
+        status: "already-active",
+        message: "Sua assinatura já está ativa. Redirecionando...",
+      };
+    }
+
     // 2) offering current
     const offerings = await rc.getOfferings();
     const current = offerings.current;
@@ -142,16 +152,27 @@ export async function startRevenueCatCheckout(): Promise<CheckoutResult> {
     }
     return { ok: true, status: "purchased" };
   } catch (e: unknown) {
-    // cancelamento do usuário (PurchasesError com ErrorCode.UserCancelledError = 1)
     const err = e as { errorCode?: number; name?: string; message?: string };
+    const rawMsg = String(err?.message ?? "").toLowerCase();
+
+    // produto JÁ ativo para o usuário → não é falha; trata como já-ativo.
+    if (rawMsg.includes("already active") || rawMsg.includes("already purchased")) {
+      console.warn("[revenuecat] produto já ativo para o usuário — tratando como já-ativo.");
+      return {
+        ok: true,
+        status: "already-active",
+        message: "Sua assinatura já está ativa. Redirecionando...",
+      };
+    }
+
+    // cancelamento do usuário (PurchasesError com ErrorCode.UserCancelledError = 1)
     const cancelled =
-      err?.errorCode === 1 ||
-      err?.name === "UserCancelledError" ||
-      String(err?.message ?? "").toLowerCase().includes("cancel");
+      err?.errorCode === 1 || err?.name === "UserCancelledError" || rawMsg.includes("cancel");
     if (cancelled) {
       console.warn("[revenuecat] compra cancelada pelo usuário.");
       return { ok: false, status: "cancelled", message: "Compra cancelada." };
     }
+
     const message = err?.message
       ? `Falha no checkout: ${err.message}`
       : "Não foi possível iniciar o checkout. Tente novamente.";

@@ -11,7 +11,9 @@ import {
 } from "@/lib/access/accessRules";
 import {
   startRevenueCatCheckout,
+  refreshRevenueCatEntitlement,
   ensureConfigured,
+  isRevenueCatEnabled,
   type CheckoutResult,
 } from "@/lib/payments/revenuecat";
 import { createClient } from "@/lib/supabase/client";
@@ -80,10 +82,42 @@ function subscriptionFromProfile(profile: ProfileRow | null): Pick<
 export function useAccessGate() {
   const { user, profile, loading, refreshProfile } = useAuth();
 
-  // configura o RevenueCat com o id do usuário (no-op sem key/SSR)
+  // entitlement "pro" do RevenueCat (fonte de verdade da assinatura no cliente).
+  // `null` = ainda não consultado; usado para não decidir acesso cedo demais.
+  const [entitlementActive, setEntitlementActive] = useState<boolean | null>(null);
+
+  /** Consulta o entitlement PRO no RevenueCat e guarda no estado. */
+  const refreshEntitlement = useCallback(async () => {
+    if (!isRevenueCatEnabled()) {
+      setEntitlementActive(false);
+      return false;
+    }
+    try {
+      const ent = await refreshRevenueCatEntitlement();
+      setEntitlementActive(ent.active);
+      return ent.active;
+    } catch {
+      setEntitlementActive(false);
+      return false;
+    }
+  }, []);
+
+  // configura o RevenueCat com o id do usuário e consulta o entitlement.
   useEffect(() => {
-    if (user?.id) void ensureConfigured(user.id);
-  }, [user?.id]);
+    if (!user?.id) {
+      setEntitlementActive(false);
+      return;
+    }
+    let active = true;
+    (async () => {
+      await ensureConfigured(user.id);
+      if (!active) return;
+      await refreshEntitlement();
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user?.id, refreshEntitlement]);
 
   // estado de dev (simulação) — hidratado no cliente
   const [dev, setDev] = useState<DevAccessState>({});
@@ -114,12 +148,14 @@ export function useAccessGate() {
   // dados combinados para as regras puras
   const accessData: AccessData = useMemo(() => {
     const sub = subscriptionFromProfile(profile);
-    if (!IS_DEV) return sub;
+    // entitlement do RevenueCat (fonte de verdade da assinatura no cliente)
+    const withEnt: AccessData = { ...sub, entitlementActive: entitlementActive === true };
+    if (!IS_DEV) return withEnt;
     // dev: assinatura simulada e/ou cristal-do-dia simulado sobrepõem o real
     const devBypass = !!dev.pro;
     const lastCrystalAccessDate = dev.crystalDay ?? sub.lastCrystalAccessDate;
-    return { ...sub, devBypass, lastCrystalAccessDate };
-  }, [profile, dev]);
+    return { ...withEnt, devBypass, lastCrystalAccessDate };
+  }, [profile, dev, entitlementActive]);
 
   const hasAccess = useMemo(() => canAccessApp(accessData), [accessData]);
   const reason: AccessReason = useMemo(() => getAccessReason(accessData), [accessData]);
@@ -129,8 +165,13 @@ export function useAccessGate() {
     [hasAccess, accessData],
   );
 
-  // loading = auth carregando OU (em dev) simulação ainda não hidratada
-  const isLoading = loading || (IS_DEV && !devHydrated);
+  // loading enquanto: auth carrega, dev não hidratou, OU (RC habilitado) o
+  // entitlement ainda não foi consultado — evita mostrar o paywall a quem já
+  // tem Pro ativo (piscar).
+  const isLoading =
+    loading ||
+    (IS_DEV && !devHydrated) ||
+    (isRevenueCatEnabled() && entitlementActive === null);
 
   /**
    * Libera o acesso de HOJE usando 1 cristal.
@@ -164,15 +205,22 @@ export function useAccessGate() {
   }, [refreshProfile]);
 
   /**
-   * Inicia o checkout de assinatura (RevenueCat). Após uma compra bem-sucedida,
-   * recarrega o profile — o webhook grava o status e o AccessGuard libera. O
-   * status "not-implemented" volta quando o RevenueCat ainda não está configurado.
+   * Inicia o checkout de assinatura (RevenueCat).
+   *
+   * O checkout já checa o entitlement ANTES de comprar: se o "pro" estiver
+   * ativo, retorna status "already-active" (não tenta comprar de novo). Em
+   * qualquer sucesso (purchased/already-active), re-consulta o entitlement no RC
+   * e recarrega o profile — assim o `hasAccess` libera na hora, sem depender do
+   * webhook (importante em sandbox, que acelera renovações).
    */
   const startCheckout = useCallback(async (): Promise<CheckoutResult> => {
     const result = await startRevenueCatCheckout();
-    if (result.ok) await refreshProfile();
+    if (result.ok) {
+      await refreshEntitlement();
+      await refreshProfile();
+    }
     return result;
-  }, [refreshProfile]);
+  }, [refreshEntitlement, refreshProfile]);
 
   /** [DEV] Simula assinatura Pro ativa (para testar o app interno). */
   const simulateProAccess = useCallback(() => {
@@ -199,6 +247,8 @@ export function useAccessGate() {
     canUseCrystal,
     useCrystalForToday,
     startCheckout,
+    /** re-consulta o entitlement PRO no RevenueCat (atualiza hasAccess). */
+    refreshEntitlement,
     /** habilita a exibição das dev tools no paywall (nunca em produção). */
     isDev: IS_DEV,
     simulateProAccess,

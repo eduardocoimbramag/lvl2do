@@ -34,6 +34,13 @@ export interface AccessData {
   crystals?: number | null;
   /** último dia ("YYYY-MM-DD") em que um cristal liberou acesso. */
   lastCrystalAccessDate?: string | null;
+  /**
+   * Entitlement "pro" ativo segundo o RevenueCat (consulta ao provedor no
+   * cliente). Quando true, LIBERA o acesso independentemente do status/validade
+   * gravados no banco — o RC é a fonte de verdade da assinatura (o webhook pode
+   * ainda não ter atualizado o profile, ou o sandbox acelerar renovações).
+   */
+  entitlementActive?: boolean;
   /** bypass de desenvolvimento (ex.: simulação no localStorage). */
   devBypass?: boolean;
 }
@@ -82,10 +89,12 @@ export function hasCrystalsAvailable(data: AccessData): boolean {
 
 /**
  * Decisão final: o usuário pode acessar o app agora?
- * Ordem: assinatura ativa/trial → cristal do dia → dev bypass → não.
+ * Ordem: entitlement RC ativo → assinatura no banco → cristal do dia → dev bypass.
+ * O `entitlementActive` (RevenueCat) tem prioridade e ignora a validade local.
  */
 export function canAccessApp(data: AccessData, now: Date = new Date()): boolean {
   return (
+    !!data.entitlementActive ||
     isSubscriptionActive(data) ||
     hasCrystalAccessToday(data, now) ||
     !!data.devBypass
@@ -94,6 +103,7 @@ export function canAccessApp(data: AccessData, now: Date = new Date()): boolean 
 
 /** Motivo do acesso (ou "paywall" se negado), para UI/telemetria. */
 export function getAccessReason(data: AccessData, now: Date = new Date()): AccessReason {
+  if (data.entitlementActive) return "subscription";
   if (isSubscriptionActive(data)) return isInTrial(data) ? "trial" : "subscription";
   if (hasCrystalAccessToday(data, now)) return "crystal";
   if (data.devBypass) return "dev-bypass";
