@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, type ReactNode } from 
 import { useAuth } from "@/components/AuthProvider";
 import { updateMyProfile } from "@/lib/db/profiles";
 import { logXpEvent } from "@/lib/db/xpEvents";
-import { getLocalDateKey } from "@/lib/xp-system";
+import { getLocalDateKey, daysBetweenDateKeys } from "@/lib/xp-system";
 
 /** ISO de meio-dia local de uma data "YYYY-MM-DD" (evita pular de dia por fuso). */
 function noonOf(dateKey: string): string {
@@ -14,6 +14,7 @@ function noonOf(dateKey: string): string {
 import { useUserStats } from "./useUserStats";
 import { useMissions } from "./useMissions";
 import { useStreak } from "./useStreak";
+import { useTodayKey } from "./useTodayKey";
 import { useAlarms } from "./useAlarms";
 import { useNotifications } from "./useNotifications";
 
@@ -28,7 +29,9 @@ type AlarmsApi = ReturnType<typeof useAlarms> & {
 };
 
 type AppState = ReturnType<typeof useUserStats> & {
-  /** streak atual (dias consecutivos), vindo do profile. */
+  /** chave do dia local ("YYYY-MM-DD") como estado — muda na virada (day tick). */
+  todayKey: string;
+  /** streak EXIBIDO (0 quando a sequência já quebrou — auditoria A4). */
   streak: number;
   /** maior streak já alcançado, vindo do profile. */
   bestStreak: number;
@@ -43,12 +46,19 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth();
   const userId = user?.id ?? null;
 
+  // "hoje" como estado — atualiza na virada de meia-noite com o app aberto
+  // (auditoria A2). Entra nas deps de tudo que depende do dia atual.
+  const todayKey = useTodayKey();
+
+  // a perda por inatividade só liga quando a coluna existe no banco (senão a
+  // marca de checagem não persiste e a perda repetiria a cada reload).
+  const lossCheckSupported = !!profile && "last_xp_loss_check_date" in profile;
+
   // persiste XP/level + contadores diários (hoje e ontem) no profile (best-effort).
   //
-  // IMPORTANTE (robustez): as colunas yesterday_xp/yesterday_xp_date podem não
-  // existir ainda no banco (migração não rodada). Se o upsert com elas falhar,
-  // refazemos SEM esses campos — assim total_xp/daily_xp SEMPRE persistem e o
-  // XP não "some" ao recarregar. Quando as colunas existirem, tudo é gravado.
+  // IMPORTANTE (robustez): as colunas yesterday_*/last_xp_loss_check_date podem
+  // não existir ainda no banco. Se o upsert estendido falhar, refazemos SÓ com
+  // os campos essenciais — total_xp/daily_xp SEMPRE persistem.
   const persistStats = useCallback(
     (s: {
       totalXp: number;
@@ -57,6 +67,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       dailyXpDate: string;
       yesterdayXp: number;
       yesterdayXpDate: string | null;
+      lastXpLossCheckDate: string | null;
     }) => {
       const core = {
         total_xp: s.totalXp,
@@ -68,12 +79,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         ...core,
         yesterday_xp: s.yesterdayXp,
         yesterday_xp_date: s.yesterdayXpDate,
-      }).catch(() => {
-        // fallback: grava só os campos essenciais (sem os de "ontem")
-        updateMyProfile(core).catch(() => {});
+        // só envia a marca de inatividade quando a coluna existe (evita
+        // derrubar o upsert inteiro em bancos sem a migração)
+        ...(lossCheckSupported ? { last_xp_loss_check_date: s.lastXpLossCheckDate } : {}),
+      }).catch((e) => {
+        console.warn("[persistStats] upsert estendido falhou; gravando essenciais:", e);
+        updateMyProfile(core).catch((e2) =>
+          console.warn("[persistStats] fallback essencial também falhou:", e2),
+        );
       });
     },
-    [],
+    [lossCheckSupported],
   );
 
   // progressão (XP/level + diário) semeada do banco — conta nova começa em 0.
@@ -83,6 +99,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     seedDailyXpDate: profile?.daily_xp_date ?? null,
     seedYesterdayXp: profile?.yesterday_xp ?? 0,
     seedYesterdayXpDate: profile?.yesterday_xp_date ?? null,
+    todayKey,
+    seedLastCompletedAt: profile?.last_mission_completed_at ?? null,
+    seedLossCheckDate: profile?.last_xp_loss_check_date ?? null,
+    inactivityEnabled: lossCheckSupported,
     persistStats,
   });
 
@@ -106,13 +126,26 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const registerCompletion = streakApi.registerCompletion;
 
+  // Streak de EXIBIÇÃO (auditoria A4): se a última conclusão foi antes de
+  // ontem, a sequência já quebrou — mostra 0 sem esperar a próxima conclusão
+  // (o valor persistido só é recalculado pelo computeNextStreak ao concluir).
+  const displayStreak = useMemo(() => {
+    const last = streakApi.lastCompletedKey;
+    if (!last) return 0;
+    const gap = daysBetweenDateKeys(last, todayKey);
+    return gap <= 1 ? streakApi.current : 0;
+  }, [streakApi.lastCompletedKey, streakApi.current, todayKey]);
+
   // missões persistidas no banco; concluir credita XP, avança o streak e
   // registra um evento de XP (para o histórico de métricas).
+  // Falhas do log NÃO são silenciosas (auditoria A8): sem o evento, o gráfico
+  // de métricas e o year_xp (ranking anual) param de acumular.
   const missionsApi = useMissions({
     userId,
+    todayKey,
     onMissionCompleted: ({ xp, category, missionId, targetDateKey }) => {
-      const todayKey = getLocalDateKey(new Date());
-      const isRetro = !!targetDateKey && targetDateKey !== todayKey;
+      const tk = getLocalDateKey(new Date());
+      const isRetro = !!targetDateKey && targetDateKey !== tk;
       // crédito no orçamento do dia-alvo (ontem) ou de hoje
       const earned = isRetro
         ? userStats.completeMissionForDay(xp, targetDateKey!).earnedXp
@@ -127,13 +160,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           category,
           missionId,
           occurredAt: isRetro ? noonOf(targetDateKey!) : undefined,
-        }).catch(() => {});
+        }).catch((e) => console.warn("[xp_events] falha ao logar ganho (métricas/ranking):", e));
       }
       return earned;
     },
     onMissionReverted: ({ xp, category, missionId, targetDateKey }) => {
-      const todayKey = getLocalDateKey(new Date());
-      const isRetro = !!targetDateKey && targetDateKey !== todayKey;
+      const tk = getLocalDateKey(new Date());
+      const isRetro = !!targetDateKey && targetDateKey !== tk;
       if (isRetro) userStats.revertMissionForDay(xp, targetDateKey!);
       else userStats.revertMission(xp);
       if (userId) {
@@ -144,7 +177,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           category,
           missionId,
           occurredAt: isRetro ? noonOf(targetDateKey!) : undefined,
-        }).catch(() => {});
+        }).catch((e) => console.warn("[xp_events] falha ao logar reversão (métricas/ranking):", e));
       }
     },
   });
@@ -162,7 +195,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const value: AppState = {
     ...userStats,
-    streak: streakApi.current,
+    todayKey,
+    streak: displayStreak,
     bestStreak: streakApi.best,
     missionsApi,
     alarmsApi,

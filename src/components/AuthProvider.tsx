@@ -74,6 +74,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [loadProfile, user],
   );
 
+  // Re-carrega o profile ao voltar o foco para a aba/janela (auditoria A9):
+  // se o usuário usou o app em outra aba/dispositivo, o estado local re-seeda
+  // com os dados mais novos (os hooks só re-seedam quando não há interação
+  // local pendente — flag `dirty` interna de cada um).
+  useEffect(() => {
+    if (!user?.id) return;
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void loadProfile(user.id);
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [user?.id, loadProfile]);
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
   }, [supabase]);

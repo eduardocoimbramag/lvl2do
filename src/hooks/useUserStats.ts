@@ -6,9 +6,11 @@ import {
   applyXpRevert,
   applyXpGainForDay,
   applyXpRevertForDay,
+  applyInactiveDayLoss,
   normalizeDailyBudgets,
   previousDateKey,
   dayBudgetKind,
+  daysBetweenDateKeys,
   calculateCurrentLevelProgress,
   calculateLevelFromXp,
   getLocalDateKey,
@@ -18,17 +20,26 @@ import {
   type XpRevertResult,
 } from "@/lib/xp-system";
 
-/** Feedback exibido ao usuário após concluir/desfazer uma missão. */
+/** Feedback exibido ao usuário após concluir/desfazer uma missão (ou perder XP). */
 export type StatsFeedback = {
-  kind: "gain" | "revert";
-  /** XP creditado (gain) ou removido como número negativo (revert). */
+  kind: "gain" | "revert" | "loss";
+  /** XP creditado (gain) ou removido como número negativo (revert/loss). */
   xp: number;
   baseXp?: number;
   wasCapped?: boolean;
   reachedDailyLimit?: boolean;
+  /** dias inativos que geraram a perda (kind "loss"). */
+  inactiveDays?: number;
   levelDelta: number;
   level: number;
 };
+
+/** Converte um timestamp ISO em chave de data local "YYYY-MM-DD" (ou null). */
+function isoToDateKey(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : getLocalDateKey(d);
+}
 
 interface UseUserStatsOptions {
   /** XP total inicial vindo do banco (profile.total_xp). 0 = conta nova. */
@@ -41,7 +52,23 @@ interface UseUserStatsOptions {
   seedYesterdayXp?: number;
   /** Dia ("YYYY-MM-DD") a que o XP de ontem se refere (profile.yesterday_xp_date). */
   seedYesterdayXpDate?: string | null;
-  /** persiste XP/level + contadores diários (hoje e ontem) no banco (best-effort). */
+  /**
+   * Chave do dia atual como ESTADO (ver useTodayKey). Quando muda com o app
+   * aberto (virada de meia-noite), os orçamentos são re-normalizados e
+   * persistidos, e a checagem de inatividade roda de novo (auditoria A1/A2).
+   */
+  todayKey?: string;
+  /** `last_mission_completed_at` (ISO) do profile — base da inatividade. */
+  seedLastCompletedAt?: string | null;
+  /** `last_xp_loss_check_date` ("YYYY-MM-DD") do profile, ou null. */
+  seedLossCheckDate?: string | null;
+  /**
+   * Habilita a perda de XP por inatividade. Só deve ser true quando a coluna
+   * `last_xp_loss_check_date` EXISTE no banco (senão a perda se repetiria a
+   * cada reload por falta de persistência da marca de checagem).
+   */
+  inactivityEnabled?: boolean;
+  /** persiste XP/level + contadores diários no banco (best-effort). */
   persistStats?: (snapshot: {
     totalXp: number;
     level: number;
@@ -49,6 +76,7 @@ interface UseUserStatsOptions {
     dailyXpDate: string;
     yesterdayXp: number;
     yesterdayXpDate: string | null;
+    lastXpLossCheckDate: string | null;
   }) => void;
 }
 
@@ -63,6 +91,10 @@ export function useUserStats({
   seedDailyXpDate = null,
   seedYesterdayXp = 0,
   seedYesterdayXpDate = null,
+  todayKey: todayKeyProp,
+  seedLastCompletedAt = null,
+  seedLossCheckDate = null,
+  inactivityEnabled = false,
   persistStats,
 }: UseUserStatsOptions) {
   const [stats, setStats] = useState<UserStats>(() => {
@@ -75,8 +107,8 @@ export function useUserStats({
       dailyXpDate: seedDailyXpDate ?? todayKey,
       yesterdayXp: Math.max(0, seedYesterdayXp),
       yesterdayXpDate: seedYesterdayXpDate,
-      lastMissionCompletedDate: null,
-      lastXpLossCheckDate: todayKey,
+      lastMissionCompletedDate: isoToDateKey(seedLastCompletedAt),
+      lastXpLossCheckDate: seedLossCheckDate,
     };
     // migra daily→yesterday na virada e alinha os orçamentos ao dia atual
     return normalizeDailyBudgets(seeded, todayKey);
@@ -105,6 +137,8 @@ export function useUserStats({
         dailyXpDate: seedDailyXpDate ?? todayKey,
         yesterdayXp: Math.max(0, seedYesterdayXp),
         yesterdayXpDate: seedYesterdayXpDate,
+        lastMissionCompletedDate: isoToDateKey(seedLastCompletedAt),
+        lastXpLossCheckDate: seedLossCheckDate,
       },
       todayKey,
     );
@@ -127,9 +161,18 @@ export function useUserStats({
         dailyXpDate: next.dailyXpDate,
         yesterdayXp: next.yesterdayXp,
         yesterdayXpDate: next.yesterdayXpDate,
+        lastXpLossCheckDate: next.lastXpLossCheckDate,
       });
     }
-  }, [seedTotalXp, seedDailyXp, seedDailyXpDate, seedYesterdayXp, seedYesterdayXpDate]);
+  }, [
+    seedTotalXp,
+    seedDailyXp,
+    seedDailyXpDate,
+    seedYesterdayXp,
+    seedYesterdayXpDate,
+    seedLastCompletedAt,
+    seedLossCheckDate,
+  ]);
 
   const commit = useCallback((value: UserStats) => {
     statsRef.current = value;
@@ -141,8 +184,76 @@ export function useUserStats({
       dailyXpDate: value.dailyXpDate,
       yesterdayXp: value.yesterdayXp,
       yesterdayXpDate: value.yesterdayXpDate,
+      lastXpLossCheckDate: value.lastXpLossCheckDate,
     });
   }, []);
+
+  /**
+   * VIRADA DE DIA com o app aberto (auditoria A2): quando o `todayKey` (day
+   * tick) muda, re-normaliza os orçamentos (migra dailyXp→yesterdayXp) e
+   * persiste — mesmo em sessão "dirty", pois a normalização é idempotente e
+   * não perde ganhos locais. No mount é no-op (o seed já normalizou).
+   */
+  useEffect(() => {
+    if (!todayKeyProp) return;
+    const cur = statsRef.current;
+    const next = normalizeDailyBudgets(cur, todayKeyProp);
+    const changed =
+      next.dailyXp !== cur.dailyXp ||
+      next.dailyXpDate !== cur.dailyXpDate ||
+      next.yesterdayXp !== cur.yesterdayXp ||
+      next.yesterdayXpDate !== cur.yesterdayXpDate;
+    if (changed) commit(next);
+  }, [todayKeyProp, commit]);
+
+  /**
+   * PERDA POR INATIVIDADE (auditoria A3): aplica −200 XP por dia inteiro sem
+   * conclusão, uma única vez por dia (marca `lastXpLossCheckDate` persistida).
+   * Só roda com `inactivityEnabled` (coluna existente no banco) — sem a marca
+   * persistida, a perda se repetiria a cada reload.
+   */
+  const inactivityDoneFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!inactivityEnabled) return;
+    const tk = todayKeyProp ?? getLocalDateKey(new Date());
+    if (inactivityDoneFor.current === tk) return;
+
+    // última atividade: a maior entre o seed do banco e a da sessão atual
+    const seedKey = isoToDateKey(seedLastCompletedAt);
+    const sessionKey = statsRef.current.lastMissionCompletedDate;
+    const lastActivity =
+      seedKey && sessionKey ? (seedKey > sessionKey ? seedKey : sessionKey) : (seedKey ?? sessionKey);
+    // nunca concluiu nada → não há ponto de partida para contar perda
+    if (!lastActivity) {
+      inactivityDoneFor.current = tk;
+      return;
+    }
+
+    // "pago até": o dia da última atividade OU o dia anterior à última checagem
+    // (na checagem do dia X penalizamos até X−1) — o que for mais recente.
+    const checked = seedLossCheckDate ?? statsRef.current.lastXpLossCheckDate;
+    const checkedPaid = checked ? previousDateKey(checked) : null;
+    const paidThrough = checkedPaid && checkedPaid > lastActivity ? checkedPaid : lastActivity;
+
+    // dias inteiros SEM atividade entre paidThrough (excl.) e hoje (excl.)
+    const unprocessed = Math.max(0, daysBetweenDateKeys(paidThrough, tk) - 1);
+    inactivityDoneFor.current = tk;
+    if (unprocessed <= 0) return;
+
+    const result = applyInactiveDayLoss(statsRef.current, unprocessed);
+    dirty.current = true; // o estado local vira a verdade a partir daqui
+    commit({ ...result.stats, lastXpLossCheckDate: tk });
+
+    if (result.xpLost > 0) {
+      setFeedback({
+        kind: "loss",
+        xp: -result.xpLost,
+        inactiveDays: result.inactiveDays,
+        levelDelta: -result.levelDrop,
+        level: result.levelAfter,
+      });
+    }
+  }, [inactivityEnabled, seedLastCompletedAt, seedLossCheckDate, todayKeyProp, commit]);
 
   const completeMission = useCallback(
     (missionXp: number): XpGainResult => {

@@ -29,12 +29,17 @@ function isoToKey(iso: string | null): string | null {
 export function useStreak({ seedCurrent, seedBest, seedLastCompletedAt, persist }: UseStreakOptions) {
   const [current, setCurrent] = useState(seedCurrent);
   const [best, setBest] = useState(seedBest);
+  // dia da última conclusão como ESTADO (para derivar o streak de exibição —
+  // se a sequência já quebrou, a UI mostra 0 sem esperar a próxima conclusão).
+  const [lastCompletedKey, setLastCompletedKey] = useState<string | null>(
+    isoToKey(seedLastCompletedAt),
+  );
 
   const currentRef = useRef(current);
   currentRef.current = current;
   const bestRef = useRef(best);
   bestRef.current = best;
-  const lastKeyRef = useRef<string | null>(isoToKey(seedLastCompletedAt));
+  const lastKeyRef = useRef<string | null>(lastCompletedKey);
 
   // vira true na primeira conclusão da sessão — a partir daí o estado local é a
   // verdade e a semente do banco não sobrescreve mais.
@@ -48,7 +53,9 @@ export function useStreak({ seedCurrent, seedBest, seedLastCompletedAt, persist 
     if (dirty.current) return;
     setCurrent(seedCurrent);
     setBest(seedBest);
-    lastKeyRef.current = isoToKey(seedLastCompletedAt);
+    const key = isoToKey(seedLastCompletedAt);
+    lastKeyRef.current = key;
+    setLastCompletedKey(key);
   }, [seedCurrent, seedBest, seedLastCompletedAt]);
 
   /** Registra a conclusão de uma missão (avança o streak no máximo 1x/dia). */
@@ -64,10 +71,11 @@ export function useStreak({ seedCurrent, seedBest, seedLastCompletedAt, persist 
 
     dirty.current = true;
     lastKeyRef.current = todayKey;
+    setLastCompletedKey(todayKey);
     setCurrent(next.current);
     setBest(next.best);
     persistRef.current?.(next.current, next.best, new Date().toISOString());
   }, []);
 
-  return { current, best, registerCompletion };
+  return { current, best, lastCompletedKey, registerCompletion };
 }

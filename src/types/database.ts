@@ -41,6 +41,12 @@ export type ProfileRow = {
   yesterday_xp: number;
   /** Dia ("YYYY-MM-DD") ao qual `yesterday_xp` se refere, ou null. */
   yesterday_xp_date: string | null;
+  /**
+   * Dia ("YYYY-MM-DD") da última checagem de perda por inatividade, ou null.
+   * Opcional: a coluna pode não existir (a regra fica desligada até a migração
+   * supabase/2026-inactivity.sql ser rodada).
+   */
+  last_xp_loss_check_date?: string | null;
   current_streak: number;
   best_streak: number;
   last_mission_completed_at: string | null;

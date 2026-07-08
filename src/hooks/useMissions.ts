@@ -102,17 +102,73 @@ export interface MissionXpContext {
 interface UseMissionsOptions {
   /** id do usuário logado (Supabase). null = sem dados. */
   userId: string | null;
+  /** chave do dia atual como estado (day tick) — re-deriva "hoje" na virada. */
+  todayKey?: string;
   /** transição → concluída: recebe o contexto e retorna o XP creditado. */
   onMissionCompleted?: (ctx: MissionXpContext) => number;
   /** desfazer conclusão: recebe o contexto (xp = creditado a devolver). */
   onMissionReverted?: (ctx: MissionXpContext) => void;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Registro persistido do XP creditado por missão (auditoria A5/A6).          */
+/*  Guarda QUANTO foi creditado e EM QUAL dia — assim o desfazer devolve o     */
+/*  valor exato ao orçamento certo, mesmo após recarregar a página.            */
+/* -------------------------------------------------------------------------- */
+const CREDITED_KEY = "lvl2do.creditedXp.v1";
+interface CreditedRecord {
+  xp: number;
+  dateKey: string;
+}
+
+function loadCreditedMap(): Record<string, CreditedRecord> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(CREDITED_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, CreditedRecord>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCreditedMap(map: Record<string, CreditedRecord>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CREDITED_KEY, JSON.stringify(map));
+  } catch {
+    /* ignora */
+  }
+}
+
+function getCreditedRecord(id: string): CreditedRecord | null {
+  return loadCreditedMap()[id] ?? null;
+}
+
+function setCreditedRecord(id: string, rec: CreditedRecord) {
+  const map = loadCreditedMap();
+  map[id] = rec;
+  saveCreditedMap(map);
+}
+
+function removeCreditedRecord(id: string) {
+  const map = loadCreditedMap();
+  if (id in map) {
+    delete map[id];
+    saveCreditedMap(map);
+  }
+}
+
 /**
  * Missões persistidas no Supabase. Carrega as do usuário na montagem e
  * cria/conclui/edita/remove no banco (com atualização otimista da UI).
  */
-export function useMissions({ userId, onMissionCompleted, onMissionReverted }: UseMissionsOptions) {
+export function useMissions({
+  userId,
+  todayKey,
+  onMissionCompleted,
+  onMissionReverted,
+}: UseMissionsOptions) {
   const [missions, setMissions] = useState<Mission[]>([]);
   const missionsRef = useRef<Mission[]>(missions);
   missionsRef.current = missions;
@@ -120,7 +176,6 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
   onCompletedRef.current = onMissionCompleted;
   const onRevertedRef = useRef(onMissionReverted);
   onRevertedRef.current = onMissionReverted;
-  const creditedByMission = useRef<Record<string, number>>({});
 
   /**
    * Conclusões RETROATIVAS (ex.: missões de ontem marcadas no calendário).
@@ -134,15 +189,28 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
   const retroRef = useRef<Record<string, number>>({});
   retroRef.current = retro;
 
-  // hidrata as conclusões retroativas do localStorage (uma vez)
+  // hidrata as conclusões retroativas do localStorage (uma vez), com PODA de
+  // entradas muito antigas (auditoria A7 — evita crescimento sem limite).
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const raw = window.localStorage.getItem(RETRO_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") setRetro(parsed as Record<string, number>);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return;
+
+      // mantém ~13 meses de histórico (o calendário navega meses passados)
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 400);
+      const cutoff = toISODate(cutoffDate);
+      const entries = Object.entries(parsed as Record<string, number>);
+      const pruned = Object.fromEntries(
+        entries.filter(([key]) => (key.split("@")[1] ?? "") >= cutoff),
+      );
+      if (Object.keys(pruned).length !== entries.length) {
+        window.localStorage.setItem(RETRO_KEY, JSON.stringify(pruned));
       }
+      setRetro(pruned);
     } catch {
       /* ignora */
     }
@@ -223,50 +291,79 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
   );
 
   /**
+   * Conclui/desfaz uma missão de status GLOBAL (não-recorrente), creditando ou
+   * devolvendo o XP no orçamento do dia informado (padrão: hoje).
+   *
+   * O crédito é registrado com o DIA (localStorage, ver CreditedRecord): o
+   * desfazer devolve o valor EXATO ao orçamento certo mesmo após recarregar ou
+   * cruzar a meia-noite (auditoria A5/A6 — antes, o fallback devolvia o XP base
+   * cheio no orçamento de hoje).
+   */
+  const toggleStatus = useCallback((id: string, dateKey?: string) => {
+    const target = missionsRef.current.find((m) => m.id === id);
+    if (!target) return;
+    const todayK = toISODate(new Date());
+    const isUndo = target.status === "done";
+    const newStatus: MissionStatus = isUndo ? "pending" : "done";
+    const nowISO = new Date().toISOString();
+
+    setMissions((prev) =>
+      prev.map((m) =>
+        m.id === id
+          ? { ...m, status: newStatus, completedAt: isUndo ? null : nowISO }
+          : m,
+      ),
+    );
+    updateMissionStatus(id, newStatus).catch((e) => console.error(e));
+
+    if (!isUndo) {
+      const targetDateKey = dateKey ?? todayK;
+      const credited =
+        onCompletedRef.current?.({
+          xp: target.xp,
+          category: target.category,
+          missionId: id,
+          targetDateKey,
+        }) ?? 0;
+      setCreditedRecord(id, { xp: credited, dateKey: targetDateKey });
+    } else {
+      // valor/dia exatos do crédito (persistidos); fallbacks: dia do
+      // completedAt e XP base da missão (nunca deixa de reverter).
+      const rec = getCreditedRecord(id);
+      const fallbackKey = target.completedAt
+        ? toISODate(new Date(target.completedAt))
+        : todayK;
+      const credited = rec?.xp ?? target.xp;
+      const creditDay = rec?.dateKey ?? fallbackKey;
+      removeCreditedRecord(id);
+      if (credited > 0) {
+        onRevertedRef.current?.({
+          xp: credited,
+          category: target.category,
+          missionId: id,
+          targetDateKey: creditDay,
+        });
+      }
+    }
+  }, []);
+
+  /**
    * Alterna concluída/pendente (botão do card, dia de hoje).
    * - Recorrente (weekly/dates) → conclusão POR DIA (retro), para resetar no
    *   dia seguinte. NÃO altera o status global.
-   * - "Uma vez" (today) / foco  → status global no banco (comportamento antigo).
+   * - "Uma vez" (today) / foco  → status global no banco.
    */
   const toggle = useCallback(
     (id: string) => {
       const target = missionsRef.current.find((m) => m.id === id);
       if (!target) return;
-
       if (isRecurring(target)) {
         toggleRetroForDay(id, toISODate(new Date()));
         return;
       }
-
-      const isUndo = target.status === "done";
-      const newStatus: MissionStatus = isUndo ? "pending" : "done";
-      const nowISO = new Date().toISOString();
-
-      setMissions((prev) =>
-        prev.map((m) =>
-          m.id === id
-            ? { ...m, status: newStatus, completedAt: isUndo ? null : nowISO }
-            : m,
-        ),
-      );
-      updateMissionStatus(id, newStatus).catch((e) => console.error(e));
-
-      if (!isUndo) {
-        const credited =
-          onCompletedRef.current?.({ xp: target.xp, category: target.category, missionId: id }) ?? 0;
-        creditedByMission.current[id] = credited;
-      } else {
-        // XP a devolver: crédito exato desta sessão OU, se o ref se perdeu (ex.:
-        // após recarregar), o XP base da missão — garante que desfazer SEMPRE
-        // reverte, sem deixar o total inflado nem duplicar.
-        const credited = creditedByMission.current[id] ?? target.xp;
-        delete creditedByMission.current[id];
-        if (credited > 0) {
-          onRevertedRef.current?.({ xp: credited, category: target.category, missionId: id });
-        }
-      }
+      toggleStatus(id);
     },
-    [toggleRetroForDay],
+    [toggleRetroForDay, toggleStatus],
   );
 
   /** Uma (missão, dia) já foi concluída no mapa por-dia (retro)? */
@@ -290,22 +387,22 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
 
   /**
    * Conclui/desfaz uma missão PARA UM DIA específico (usado pelo calendário).
-   * - Hoje + "uma vez" → toggle normal (status real).
-   * - Recorrente (qualquer dia) ou dia passado → conclusão por-dia (retro),
-   *   creditando/revertendo no orçamento daquele dia.
+   * - Recorrente → conclusão por-dia (retro) no dia pedido.
+   * - "Uma vez"  → status global, com crédito/devolução no orçamento do DIA da
+   *   ocorrência (ex.: concluir ontem uma missão "Hoje" de ontem consome o
+   *   orçamento de ontem — e o status flui para a exibição, sem duplo crédito).
    */
   const toggleForDay = useCallback(
     (id: string, dateKey: string) => {
       const target = missionsRef.current.find((m) => m.id === id);
       if (!target) return;
-      const todayKey = toISODate(new Date());
-      if (dateKey === todayKey && !isRecurring(target)) {
-        toggle(id);
+      if (isRecurring(target)) {
+        toggleRetroForDay(id, dateKey);
         return;
       }
-      toggleRetroForDay(id, dateKey);
+      toggleStatus(id, dateKey);
     },
-    [toggle, toggleRetroForDay],
+    [toggleRetroForDay, toggleStatus],
   );
 
   /** Marca como falhada/pendente (sem XP). */
@@ -360,7 +457,7 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
         createdAt: new Date().toISOString(),
       };
       setMissions((prev) => [optimistic, ...prev]);
-      creditedByMission.current[tempId] = credited;
+      setCreditedRecord(tempId, { xp: credited, dateKey: toISODate(new Date()) });
 
       if (userId) {
         (async () => {
@@ -380,8 +477,8 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
             setMissions((prev) =>
               prev.map((m) => (m.id === tempId ? rowToMission({ ...(row as MissionRow), status: "done" }) : m)),
             );
-            creditedByMission.current[row.id] = credited;
-            delete creditedByMission.current[tempId];
+            setCreditedRecord(row.id, { xp: credited, dateKey: toISODate(new Date()) });
+            removeCreditedRecord(tempId);
           } catch (e) {
             console.error("Erro ao registrar missão de foco:", e);
           }
@@ -438,14 +535,17 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
     deleteMission(id).catch((e) => console.error(e));
   }, []);
 
+  // `todayKey` (day tick) nas deps: na virada de meia-noite com o app aberto,
+  // a lista "de hoje" e os contadores re-derivam para o novo dia (auditoria A2).
   const todayMissions = useMemo(() => {
     const now = new Date();
     return sortMissions(missions.filter((m) => occursOn(m, now)));
-  }, [missions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missions, todayKey]);
 
   const stats = useMemo(() => {
-    const todayKey = toISODate(new Date());
-    const done = todayMissions.filter((m) => isDoneForDay(m, todayKey));
+    const tk = todayKey ?? toISODate(new Date());
+    const done = todayMissions.filter((m) => isDoneForDay(m, tk));
     return {
       total: todayMissions.length,
       done: done.length,
@@ -453,7 +553,7 @@ export function useMissions({ userId, onMissionCompleted, onMissionReverted }: U
     };
     // `retro` entra nas deps para recalcular quando uma recorrente é concluída
     // por-dia (isDoneForDay lê o mapa retro).
-  }, [todayMissions, retro, isDoneForDay]);
+  }, [todayMissions, retro, isDoneForDay, todayKey]);
 
   return {
     missions: todayMissions,

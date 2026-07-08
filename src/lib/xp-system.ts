@@ -181,19 +181,20 @@ export function applyXpGain(
   missionXp: number,
   todayKey: string,
 ): XpGainResult {
-  // garante que o contador diário corresponde ao dia atual
-  const sameDay = userStats.dailyXpDate === todayKey;
-  const dailyXpBase = sameDay ? userStats.dailyXp : 0;
+  // Normaliza os orçamentos ANTES de creditar: na virada do dia isso migra o
+  // dailyXp de ontem → yesterdayXp em vez de descartá-lo (auditoria A1 — sem
+  // isso, o 1º ganho pós-meia-noite com o app aberto perdia o orçamento).
+  const base = normalizeDailyBudgets(userStats, todayKey);
 
-  const earnedXp = calculateEarnedXpToday(dailyXpBase, missionXp);
-  const newDailyXp = dailyXpBase + earnedXp;
-  const newTotalXp = Math.max(0, userStats.totalXp + earnedXp);
+  const earnedXp = calculateEarnedXpToday(base.dailyXp, missionXp);
+  const newDailyXp = base.dailyXp + earnedXp;
+  const newTotalXp = Math.max(0, base.totalXp + earnedXp);
 
-  const levelBefore = userStats.level;
+  const levelBefore = base.level;
   const levelAfter = calculateLevelFromXp(newTotalXp);
 
   const stats: UserStats = {
-    ...userStats,
+    ...base,
     totalXp: newTotalXp,
     level: levelAfter,
     dailyXp: newDailyXp,
@@ -240,18 +241,21 @@ export function applyXpRevert(
   creditedXp: number,
   todayKey: string,
 ): XpRevertResult {
+  // Normaliza antes de reverter (migra o orçamento na virada — auditoria A1).
+  // Após normalizar, o dailyXp é sempre o de HOJE; este revert é usado apenas
+  // para desfazer conclusões DE HOJE (outros dias vão por applyXpRevertForDay).
+  const base = normalizeDailyBudgets(userStats, todayKey);
+
   const amount = Math.max(0, creditedXp);
-  const newTotalXp = Math.max(0, userStats.totalXp - amount);
-  const revertedXp = userStats.totalXp - newTotalXp;
+  const newTotalXp = Math.max(0, base.totalXp - amount);
+  const revertedXp = base.totalXp - newTotalXp;
+  const newDailyXp = Math.max(0, base.dailyXp - amount);
 
-  const sameDay = userStats.dailyXpDate === todayKey;
-  const newDailyXp = sameDay ? Math.max(0, userStats.dailyXp - amount) : userStats.dailyXp;
-
-  const levelBefore = userStats.level;
+  const levelBefore = base.level;
   const levelAfter = calculateLevelFromXp(newTotalXp);
 
   const stats: UserStats = {
-    ...userStats,
+    ...base,
     totalXp: newTotalXp,
     level: levelAfter,
     dailyXp: newDailyXp,

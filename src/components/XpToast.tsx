@@ -83,6 +83,21 @@ function buildView(fb: StatsFeedback): {
     };
   }
 
+  // Perda de XP por inatividade (dias sem concluir missões).
+  if (fb.kind === "loss") {
+    const days = fb.inactiveDays ?? 1;
+    return {
+      title: `${fb.xp} XP`,
+      subtitle:
+        fb.levelDelta < 0
+          ? `${days} dia${days === 1 ? "" : "s"} sem missões · você caiu para o Nível ${fb.level}`
+          : `Você perdeu XP por ${days} dia${days === 1 ? "" : "s"} sem concluir missões.`,
+      icon: AlertTriangle,
+      iconBg: "bg-rose-500/80",
+      celebrate: false,
+    };
+  }
+
   // Reversão de XP (missão desfeita).
   if (fb.kind === "revert") {
     return {
