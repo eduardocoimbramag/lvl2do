@@ -24,25 +24,29 @@ export function PaywallModal({ className }: { className?: string }) {
     resetDevAccess,
   } = useAccessGate();
 
-  const [checkoutState, setCheckoutState] = useState<"idle" | "loading" | "unavailable">("idle");
+  const [loadingCheckout, setLoadingCheckout] = useState(false);
+  // mensagem específica do último checkout (erro/cancelamento), ou null
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
 
   async function handleCheckout() {
-    setCheckoutState("loading");
+    setLoadingCheckout(true);
+    setCheckoutMessage(null);
     const result = await startCheckout();
-    // sucesso → o hook recarrega o profile e o guard libera; caso contrário
-    // (ex.: RevenueCat ainda não configurado) sinaliza indisponível sem quebrar.
-    setCheckoutState(result.ok ? "idle" : "unavailable");
+    setLoadingCheckout(false);
+    if (result.ok) return; // sucesso → o hook recarrega o profile e o guard libera
+    // mostra o MOTIVO real (nunca um genérico sem contexto)
+    setCheckoutMessage(result.message ?? "Não foi possível iniciar o checkout.");
   }
 
   // CTAs do showcase como ações (checkout + cristal)
   const ctas: ShowcaseCta[] = [
     {
-      label: checkoutState === "loading" ? "Abrindo checkout..." : `Começar ${PRO_PLAN.trialDays} dias grátis`,
+      label: loadingCheckout ? "Abrindo checkout..." : `Começar ${PRO_PLAN.trialDays} dias grátis`,
       note: `${PRO_PLAN.trialDays} dias grátis. Depois ${PRO_PLAN.priceMonthlyLabel}/mês. Cancele quando quiser.`,
       variant: "primary",
       onClick: handleCheckout,
-      disabled: checkoutState === "loading",
-      leading: checkoutState === "loading" ? <Loader2 size={18} className="animate-spin" /> : undefined,
+      disabled: loadingCheckout,
+      leading: loadingCheckout ? <Loader2 size={18} className="animate-spin" /> : undefined,
     },
   ];
   if (canUseCrystal) {
@@ -65,10 +69,10 @@ export function PaywallModal({ className }: { className?: string }) {
         animateInView={false}
       />
 
-      {/* aviso quando o checkout ainda não está disponível */}
-      {checkoutState === "unavailable" && (
+      {/* mensagem específica do checkout (erro/cancelamento) */}
+      {checkoutMessage && (
         <p className="mx-auto mt-4 max-w-5xl text-center text-xs text-amber-300/90">
-          A assinatura estará disponível em breve. Enquanto isso, use um cristal para acessar hoje.
+          {checkoutMessage}
         </p>
       )}
 

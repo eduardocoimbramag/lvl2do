@@ -11,7 +11,12 @@
  * compra e consultar o entitlement no cliente.
  */
 
-import { PRO_ENTITLEMENT } from "@/data/subscription";
+import {
+  PRO_ENTITLEMENT,
+  RC_MONTHLY_PACKAGE_ID,
+  RC_MONTHLY_PRODUCT_ID,
+} from "@/data/subscription";
+import type { Package } from "@revenuecat/purchases-js";
 
 /**
  * Carrega o SDK do RevenueCat sob demanda (import dinâmico) para NÃO inflar o
@@ -64,40 +69,94 @@ export async function ensureConfigured(appUserId: string): Promise<boolean> {
 }
 
 /**
- * Inicia o fluxo de assinatura (checkout). Requer o SDK configurado.
- * TODO(prod): garantir que a Offering "current" tenha o package mensal do PRO
- * (14 dias de trial) no dashboard do RevenueCat.
+ * Encontra o package MENSAL na offering `current`, tolerante ao id exibido no
+ * dashboard: usa o atalho `.monthly`; senão procura por `identifier` do package
+ * ($rc_monthly) OU pelo `identifier` do produto (lvl2do_pro_monthly).
+ */
+function findMonthlyPackage(packages: Package[], monthlyShortcut: Package | null): Package | null {
+  if (monthlyShortcut) return monthlyShortcut;
+  return (
+    packages.find((p) => p.identifier === RC_MONTHLY_PACKAGE_ID) ??
+    packages.find(
+      (p) =>
+        p.webBillingProduct?.identifier === RC_MONTHLY_PRODUCT_ID ||
+        p.rcBillingProduct?.identifier === RC_MONTHLY_PRODUCT_ID,
+    ) ??
+    null
+  );
+}
+
+/**
+ * Inicia o fluxo de assinatura (checkout) do plano mensal PRO no RevenueCat.
+ * Retorna sempre um `message` específico (nunca cai em erro genérico silencioso).
  */
 export async function startRevenueCatCheckout(): Promise<CheckoutResult> {
-  if (!isRevenueCatEnabled()) {
-    return {
-      ok: false,
-      status: "not-implemented",
-      message: "Pagamento ainda não está disponível (RevenueCat não configurado).",
-    };
+  // 1) API key ausente no build
+  if (!WEB_API_KEY) {
+    const message = "RevenueCat Web API Key não encontrada no build.";
+    console.error("[revenuecat]", message);
+    return { ok: false, status: "not-implemented", message };
   }
+  if (typeof window === "undefined") {
+    return { ok: false, status: "error", message: "Checkout só disponível no navegador." };
+  }
+
   try {
     const Purchases = await loadPurchases();
+    if (!Purchases.isConfigured()) {
+      const message = "RevenueCat não está configurado (usuário não identificado).";
+      console.error("[revenuecat]", message);
+      return { ok: false, status: "error", message };
+    }
     const rc = Purchases.getSharedInstance();
+
+    // 2) offering current
     const offerings = await rc.getOfferings();
-    const pkg = offerings.current?.availablePackages?.[0];
-    if (!pkg) {
-      return { ok: false, status: "error", message: "Nenhum plano disponível no momento." };
+    const current = offerings.current;
+    if (!current) {
+      const message = "Offering current não encontrada no RevenueCat.";
+      console.error("[revenuecat]", message, { offerings });
+      return { ok: false, status: "error", message };
     }
 
+    // 3) package mensal ($rc_monthly / lvl2do_pro_monthly)
+    const pkg = findMonthlyPackage(current.availablePackages, current.monthly);
+    if (!pkg) {
+      const message = `Package mensal ${RC_MONTHLY_PACKAGE_ID}/${RC_MONTHLY_PRODUCT_ID} não encontrado.`;
+      console.error("[revenuecat]", message, {
+        available: current.availablePackages.map((p) => ({
+          package: p.identifier,
+          product: p.webBillingProduct?.identifier,
+        })),
+      });
+      return { ok: false, status: "error", message };
+    }
+
+    // 4) compra
     const { customerInfo } = await rc.purchase({ rcPackage: pkg });
     const active = !!customerInfo.entitlements.active[PRO_ENTITLEMENT];
-    return active
-      ? { ok: true, status: "purchased" }
-      : { ok: false, status: "error", message: "A compra não ativou o acesso Pro." };
+    if (!active) {
+      const message = "A compra foi concluída, mas o acesso Pro ainda não foi ativado. Tente atualizar em instantes.";
+      console.error("[revenuecat]", message, { entitlements: customerInfo.entitlements.active });
+      return { ok: false, status: "error", message };
+    }
+    return { ok: true, status: "purchased" };
   } catch (e: unknown) {
-    // usuário cancelou vs erro real (o SDK expõe um código de erro)
-    const err = e as { errorCode?: unknown; message?: string; userCancelled?: boolean };
+    // cancelamento do usuário (PurchasesError com ErrorCode.UserCancelledError = 1)
+    const err = e as { errorCode?: number; name?: string; message?: string };
     const cancelled =
-      err?.userCancelled === true ||
+      err?.errorCode === 1 ||
+      err?.name === "UserCancelledError" ||
       String(err?.message ?? "").toLowerCase().includes("cancel");
-    if (!cancelled) console.error("[revenuecat] checkout falhou:", e);
-    return { ok: false, status: cancelled ? "cancelled" : "error" };
+    if (cancelled) {
+      console.warn("[revenuecat] compra cancelada pelo usuário.");
+      return { ok: false, status: "cancelled", message: "Compra cancelada." };
+    }
+    const message = err?.message
+      ? `Falha no checkout: ${err.message}`
+      : "Não foi possível iniciar o checkout. Tente novamente.";
+    console.error("[revenuecat] checkout falhou:", e);
+    return { ok: false, status: "error", message };
   }
 }
 

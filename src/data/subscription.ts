@@ -19,6 +19,11 @@ import {
 /** Identificador do entitlement (direito de acesso) no provedor de pagamento. */
 export const PRO_ENTITLEMENT = "pro" as const;
 
+/** IDs configurados no RevenueCat (Web Billing). */
+export const RC_OFFERING_ID = "current" as const;
+export const RC_MONTHLY_PACKAGE_ID = "$rc_monthly" as const;
+export const RC_MONTHLY_PRODUCT_ID = "lvl2do_pro_monthly" as const;
+
 /** Um benefício do plano, para exibir no paywall. */
 export interface PlanBenefit {
   icon: LucideIcon;
