@@ -3,14 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { updateMyProfile } from "@/lib/db/profiles";
-import { logXpEvent } from "@/lib/db/xpEvents";
-import { getLocalDateKey, daysBetweenDateKeys } from "@/lib/xp-system";
-
-/** ISO de meio-dia local de uma data "YYYY-MM-DD" (evita pular de dia por fuso). */
-function noonOf(dateKey: string): string {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  return new Date(y, m - 1, d, 12, 0, 0).toISOString();
-}
+import { daysBetweenDateKeys, DAILY_XP_LIMIT } from "@/lib/xp-system";
 import { useUserStats } from "./useUserStats";
 import { useMissions } from "./useMissions";
 import { useStreak } from "./useStreak";
@@ -124,11 +117,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     persist: persistStreak,
   });
 
-  const registerCompletion = streakApi.registerCompletion;
-
   // Streak de EXIBIÇÃO (auditoria A4): se a última conclusão foi antes de
-  // ontem, a sequência já quebrou — mostra 0 sem esperar a próxima conclusão
-  // (o valor persistido só é recalculado pelo computeNextStreak ao concluir).
+  // ontem, a sequência já quebrou — mostra 0 sem esperar a próxima conclusão.
   const displayStreak = useMemo(() => {
     const last = streakApi.lastCompletedKey;
     if (!last) return 0;
@@ -136,55 +126,55 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return gap <= 1 ? streakApi.current : 0;
   }, [streakApi.lastCompletedKey, streakApi.current, todayKey]);
 
-  // missões persistidas no banco; concluir credita XP, avança o streak e
-  // registra um evento de XP (para o histórico de métricas).
-  // Falhas do log NÃO são silenciosas (auditoria A8): sem o evento, o gráfico
-  // de métricas e o year_xp (ranking anual) param de acumular.
+  // alarmes + notificações (estado local) — antes das missões, pois o fluxo
+  // de erro das RPCs usa a central de notificações.
+  const alarms = useAlarms();
+  const notificationsApi = useNotifications();
+  const addNotification = notificationsApi.addNotification;
+
+  const adoptServerProfile = userStats.adoptServerProfile;
+  const showFeedback = userStats.showFeedback;
+  const adoptStreak = streakApi.adoptServerSnapshot;
+
+  /**
+   * Missões — conclusão/reversão via RPC ATÔMICA no servidor (XP + streak +
+   * xp_events na mesma transação). O cliente apenas ADOTA o profile retornado
+   * e exibe o toast; nenhuma matemática de crédito acontece aqui.
+   */
   const missionsApi = useMissions({
     userId,
     todayKey,
-    onMissionCompleted: ({ xp, category, missionId, targetDateKey }) => {
-      const tk = getLocalDateKey(new Date());
-      const isRetro = !!targetDateKey && targetDateKey !== tk;
-      // crédito no orçamento do dia-alvo (ontem) ou de hoje
-      const earned = isRetro
-        ? userStats.completeMissionForDay(xp, targetDateKey!).earnedXp
-        : userStats.completeMission(xp).earnedXp;
-      // só conta para o streak quando a conclusão é de hoje
-      if (!isRetro) registerCompletion();
-      if (userId) {
-        logXpEvent({
-          userId,
+    onServerUpdate: ({ kind, profile, xp, baseXp, dateKey }) => {
+      const { levelBefore, levelAfter } = adoptServerProfile(profile);
+      adoptStreak(
+        profile.current_streak ?? 0,
+        profile.best_streak ?? 0,
+        profile.last_mission_completed_at ?? null,
+      );
+      if (kind === "complete") {
+        showFeedback({
           kind: "gain",
-          amount: earned,
-          category,
-          missionId,
-          occurredAt: isRetro ? noonOf(targetDateKey!) : undefined,
-        }).catch((e) => console.warn("[xp_events] falha ao logar ganho (métricas/ranking):", e));
-      }
-      return earned;
-    },
-    onMissionReverted: ({ xp, category, missionId, targetDateKey }) => {
-      const tk = getLocalDateKey(new Date());
-      const isRetro = !!targetDateKey && targetDateKey !== tk;
-      if (isRetro) userStats.revertMissionForDay(xp, targetDateKey!);
-      else userStats.revertMission(xp);
-      if (userId) {
-        logXpEvent({
-          userId,
+          xp,
+          baseXp,
+          wasCapped: baseXp != null && xp < baseXp,
+          reachedDailyLimit:
+            dateKey === profile.daily_xp_date && (profile.daily_xp ?? 0) >= DAILY_XP_LIMIT,
+          levelDelta: levelAfter - levelBefore,
+          level: levelAfter,
+        });
+      } else if (xp > 0) {
+        showFeedback({
           kind: "revert",
-          amount: -xp,
-          category,
-          missionId,
-          occurredAt: isRetro ? noonOf(targetDateKey!) : undefined,
-        }).catch((e) => console.warn("[xp_events] falha ao logar reversão (métricas/ranking):", e));
+          xp: -xp,
+          levelDelta: levelAfter - levelBefore,
+          level: levelAfter,
+        });
       }
+    },
+    onRpcError: (message) => {
+      addNotification({ type: "warning", title: "Falha ao salvar", description: message });
     },
   });
-
-  // alarmes + notificações (estado local por enquanto)
-  const alarms = useAlarms();
-  const notificationsApi = useNotifications();
 
   const setEnabled = alarms.setEnabled;
   const toggleEnabledOff = useCallback((id: string) => setEnabled(id, false), [setEnabled]);

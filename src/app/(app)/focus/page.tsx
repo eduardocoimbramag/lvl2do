@@ -59,23 +59,30 @@ export default function FocusPage() {
     onComplete: () => {
       const session = activeSession.current;
       if (!session) return;
+      activeSession.current = null;
       // toca o sino de conclusão
       fire();
-      // credita XP (variável pela duração), conta streak e vira missão do dia
-      const creditedXp = addCompletedMission({
-        title: session.title,
-        category: session.category,
-        xp: session.xp,
-      });
-      // registra no histórico local de sessões
-      addSession({
-        title: session.title,
-        category: session.category,
-        minutes: session.minutes,
-        xp: creditedXp,
-      });
-      setDone({ title: session.title, category: session.category, minutes: session.minutes, creditedXp });
-      activeSession.current = null;
+      // registra ATOMICAMENTE no servidor (missão + XP + streak numa transação)
+      void (async () => {
+        const creditedXp = await addCompletedMission({
+          title: session.title,
+          category: session.category,
+          xp: session.xp,
+        });
+        // histórico local de sessões (cache visual, não decide XP)
+        addSession({
+          title: session.title,
+          category: session.category,
+          minutes: session.minutes,
+          xp: creditedXp,
+        });
+        setDone({
+          title: session.title,
+          category: session.category,
+          minutes: session.minutes,
+          creditedXp,
+        });
+      })();
     },
   });
 

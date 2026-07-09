@@ -14,6 +14,15 @@ export const DAILY_XP_LIMIT = 300;
 export const INACTIVE_DAY_XP_LOSS = 200;
 
 /**
+ * ⏸️ PAUSA GLOBAL da perda por inatividade.
+ * Enquanto o sistema de XP estabiliza (migração para RPCs atômicas), NENHUMA
+ * perda automática de XP é aplicada — a detecção continua rodando e loga um
+ * aviso no console, mas não reduz XP. Reative mudando para `true` quando o
+ * sistema estiver validado em produção.
+ */
+export const INACTIVITY_LOSS_ENABLED = false;
+
+/**
  * Estatísticas de progressão do usuário.
  * Datas usam a chave local "YYYY-MM-DD" (ver getLocalDateKey).
  */

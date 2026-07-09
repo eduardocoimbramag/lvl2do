@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
  * Mantém em sincronia com os hooks que persistem localmente.
  */
 const LOCAL_KEYS = [
-  "lvl2do.retroCompletions.v1", // conclusões por-dia (calendário)
+  "lvl2do.retroCompletions.v1", // legado (conclusões agora vivem no banco)
+  "lvl2do.creditedXp.v1", // legado (crédito agora vive em mission_completions)
   "lvl2do.alarms.v1", // alarmes
   "lvl2do.alarms.fired.v1", // disparos de alarme já feitos
   "lvl2do.notifications.v1", // notificações (sino)
@@ -50,6 +51,9 @@ export async function resetMyAccount(options: { resetOnboarding?: boolean } = {}
   };
 
   await Promise.all([
+    del("mission_completions", () =>
+      supabase.from("mission_completions").delete().eq("user_id", uid),
+    ),
     del("missions", () => supabase.from("missions").delete().eq("user_id", uid)),
     del("xp_events", () => supabase.from("xp_events").delete().eq("user_id", uid)),
     del("redemptions", () => supabase.from("redemptions").delete().eq("user_id", uid)),

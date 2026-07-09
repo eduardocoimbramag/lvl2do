@@ -77,5 +77,24 @@ export function useStreak({ seedCurrent, seedBest, seedLastCompletedAt, persist 
     persistRef.current?.(next.current, next.best, new Date().toISOString());
   }, []);
 
-  return { current, best, lastCompletedKey, registerCompletion };
+  /**
+   * Adota o snapshot do servidor (retorno de RPC atômica) como estado local.
+   * O streak agora é calculado NO SERVIDOR na conclusão — este método apenas
+   * espelha o resultado. Marca `dirty` para o re-seed não regredir.
+   */
+  const adoptServerSnapshot = useCallback(
+    (nextCurrent: number, nextBest: number, lastCompletedAtISO: string | null) => {
+      dirty.current = true;
+      const key = isoToKey(lastCompletedAtISO);
+      currentRef.current = nextCurrent;
+      bestRef.current = nextBest;
+      lastKeyRef.current = key;
+      setCurrent(nextCurrent);
+      setBest(nextBest);
+      setLastCompletedKey(key);
+    },
+    [],
+  );
+
+  return { current, best, lastCompletedKey, registerCompletion, adoptServerSnapshot };
 }

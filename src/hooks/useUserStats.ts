@@ -15,6 +15,7 @@ import {
   calculateLevelFromXp,
   getLocalDateKey,
   DAILY_XP_LIMIT,
+  INACTIVITY_LOSS_ENABLED,
   type UserStats,
   type XpGainResult,
   type XpRevertResult,
@@ -240,6 +241,15 @@ export function useUserStats({
     inactivityDoneFor.current = tk;
     if (unprocessed <= 0) return;
 
+    // ⏸️ perda PAUSADA globalmente enquanto o sistema de XP estabiliza —
+    // apenas detecta e avisa, sem reduzir XP (ver INACTIVITY_LOSS_ENABLED).
+    if (!INACTIVITY_LOSS_ENABLED) {
+      console.warn(
+        `[inatividade] ${unprocessed} dia(s) inativo(s) detectado(s) — perda de XP PAUSADA (nenhum XP foi reduzido).`,
+      );
+      return;
+    }
+
     const result = applyInactiveDayLoss(statsRef.current, unprocessed);
     dirty.current = true; // o estado local vira a verdade a partir daqui
     commit({ ...result.stats, lastXpLossCheckDate: tk });
@@ -347,6 +357,48 @@ export function useUserStats({
     [commit],
   );
 
+  /**
+   * Adota o snapshot do PROFILE retornado por uma RPC atômica como o novo
+   * estado local (servidor = fonte de verdade). NÃO re-persiste (o servidor já
+   * gravou na mesma transação). Marca `dirty` para o próximo re-seed não
+   * regredir o estado com uma leitura mais antiga em trânsito.
+   * Retorna o nível antes/depois (para o toast calcular level up/down).
+   */
+  const adoptServerProfile = useCallback(
+    (p: {
+      total_xp: number;
+      daily_xp: number;
+      daily_xp_date: string | null;
+      yesterday_xp?: number | null;
+      yesterday_xp_date?: string | null;
+      last_xp_loss_check_date?: string | null;
+    }): { levelBefore: number; levelAfter: number } => {
+      const levelBefore = statsRef.current.level;
+      const todayKey = getLocalDateKey(new Date());
+      const next = normalizeDailyBudgets(
+        {
+          ...statsRef.current,
+          totalXp: Math.max(0, p.total_xp),
+          level: calculateLevelFromXp(p.total_xp),
+          dailyXp: Math.max(0, p.daily_xp ?? 0),
+          dailyXpDate: p.daily_xp_date ?? todayKey,
+          yesterdayXp: Math.max(0, p.yesterday_xp ?? 0),
+          yesterdayXpDate: p.yesterday_xp_date ?? null,
+          lastXpLossCheckDate: p.last_xp_loss_check_date ?? statsRef.current.lastXpLossCheckDate,
+        },
+        todayKey,
+      );
+      dirty.current = true;
+      statsRef.current = next;
+      setStats(next);
+      return { levelBefore, levelAfter: next.level };
+    },
+    [],
+  );
+
+  /** Exibe um feedback (toast) calculado externamente (ex.: retorno de RPC). */
+  const showFeedback = useCallback((fb: StatsFeedback) => setFeedback(fb), []);
+
   const dismissFeedback = useCallback(() => setFeedback(null), []);
 
   const progress = useMemo(
@@ -390,6 +442,8 @@ export function useUserStats({
     revertMission,
     completeMissionForDay,
     revertMissionForDay,
+    adoptServerProfile,
+    showFeedback,
     dismissFeedback,
   };
 }
