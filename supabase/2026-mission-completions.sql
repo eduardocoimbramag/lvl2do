@@ -14,23 +14,36 @@
 -- ------------------------------------------------------------
 -- 1) Tabela de conclusões por (missão, dia) — fonte de verdade
 -- ------------------------------------------------------------
+-- Espelha EXATAMENTE a tabela real já existente no Supabase.
+-- `create table if not exists` é no-op quando a tabela já existe: não altera
+-- schema, não apaga dados, não remove colunas legadas.
 create table if not exists public.mission_completions (
-  id                 bigint generated always as identity primary key,
-  user_id            uuid not null references auth.users(id) on delete cascade,
-  mission_id         uuid not null references public.missions(id) on delete cascade,
+  id                  uuid primary key default gen_random_uuid(),
+  user_id             uuid not null references auth.users(id) on delete cascade,
+  mission_id          uuid references public.missions(id) on delete cascade,
+  /** snapshots da missão no momento da conclusão (imutáveis). */
+  title_snapshot      text not null,
+  category_snapshot   text not null,
+  difficulty_snapshot text not null,
+  xp_snapshot         integer not null default 0,
+  /** 'completed' | 'reverted' ... */
+  status              text not null,
+  /** dia (date) a que a conclusão pertence — usado por happened_on. */
+  happened_on         date not null default current_date,
+  happened_at         timestamptz not null default now(),
   /** dia LOCAL ("YYYY-MM-DD", calendário do usuário) a que a conclusão pertence. */
-  completed_for_date date not null,
+  completed_for_date  date,
   /** XP base da missão no momento da conclusão. */
-  original_xp        integer not null default 0,
+  original_xp         integer default 0,
   /** XP efetivamente creditado (após o limite diário de 300). */
-  credited_xp        integer not null default 0,
-  completed_at       timestamptz not null default now(),
+  credited_xp         integer default 0,
+  completed_at        timestamptz default now(),
   /** null = conclusão ativa; preenchido = desfeita. */
-  reverted_at        timestamptz,
+  reverted_at         timestamptz,
   /** origem: 'mission' | 'focus' | 'calendar' ... */
-  source             text not null default 'mission',
-  metadata           jsonb,
-  created_at         timestamptz not null default now()
+  source              text default 'app',
+  metadata            jsonb default '{}',
+  created_at          timestamptz default now()
 );
 
 create index if not exists mission_completions_user_date_idx
@@ -102,7 +115,8 @@ declare
   v_credited integer;
   v_used_after integer;
   v_is_today boolean;
-  v_completion_id bigint;
+  v_completion_id uuid;
+  v_happened_at timestamptz;
   v_prev date;
   v_new_streak integer;
   v_new_best integer;
@@ -150,10 +164,26 @@ begin
   v_old_daily_date := v_profile.daily_xp_date;
   v_is_today := v_old_daily_date is null or v_date >= v_old_daily_date;
 
+  -- timestamp coerente com o dia-alvo: hoje = agora; retroativo = meio-dia
+  -- (12h) local do próprio dia, para o evento cair na data correta.
+  v_happened_at := case
+    when v_is_today then now()
+    else (v_date::timestamp + interval '12 hours') at time zone 'America/Sao_Paulo'
+  end;
+
   -- 3.1 registra a conclusão (barrada pelo índice único se houver corrida)
-  insert into mission_completions
-    (user_id, mission_id, completed_for_date, original_xp, credited_xp, source)
-  values (v_uid, p_mission_id, v_date, v_mission.xp, v_credited, 'mission')
+  insert into mission_completions (
+    user_id, mission_id,
+    title_snapshot, category_snapshot, difficulty_snapshot, xp_snapshot, status,
+    happened_on, happened_at,
+    completed_for_date, original_xp, credited_xp, source
+  )
+  values (
+    v_uid, p_mission_id,
+    v_mission.title, v_mission.category, v_mission.difficulty, v_mission.xp, 'completed',
+    v_date, v_happened_at,
+    v_date, v_mission.xp, v_credited, 'mission'
+  )
   returning id into v_completion_id;
 
   -- 3.2 status da missão: só "uma vez" usa o status global
@@ -222,11 +252,12 @@ begin
   where id = v_uid;
 
   -- 3.5 evento de XP (métricas + year_xp via trigger) — mesma transação
-  insert into xp_events (user_id, kind, amount, category, mission_id, created_at)
+  insert into public.xp_events (
+    user_id, mission_id, amount, reason, daily_cap_applied, happened_on, happened_at
+  )
   values (
-    v_uid, 'gain', v_credited, v_mission.category, p_mission_id,
-    case when v_is_today then now()
-         else (v_date::timestamp + interval '12 hours') at time zone 'America/Sao_Paulo' end
+    v_uid, p_mission_id, v_credited, 'mission_completion',
+    v_credited < v_mission.xp, v_date, v_happened_at
   );
 
   select to_jsonb(p.*) into v_profile_json from profiles p where id = v_uid;
@@ -302,9 +333,12 @@ begin
     update missions set status = 'pending', completed_at = null where id = p_mission_id;
   end if;
 
-  insert into xp_events (user_id, kind, amount, category, mission_id, created_at)
+  insert into public.xp_events (
+    user_id, mission_id, amount, reason, daily_cap_applied, happened_on, happened_at
+  )
   values (
-    v_uid, 'revert', -v_comp.credited_xp, v_mission.category, p_mission_id,
+    v_uid, p_mission_id, -v_comp.credited_xp, 'mission_revert',
+    false, v_comp.completed_for_date,
     case when v_is_today then now()
          else (v_comp.completed_for_date::timestamp + interval '12 hours') at time zone 'America/Sao_Paulo' end
   );
