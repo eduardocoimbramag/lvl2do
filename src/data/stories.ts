@@ -1,4 +1,5 @@
 import { isCharacterClass, type CharacterClass } from "./characterClasses";
+import { toCharacterBackground, type CharacterBackgroundId } from "./characterBackgrounds";
 import type { Category } from "./types";
 
 /**
@@ -22,7 +23,12 @@ export interface StoryAuthor {
   name: string;
   level: number;
   characterClass: CharacterClass;
+  /** cenário do autor: a miniatura mostra o fundo que ELE escolheu. */
+  background: CharacterBackgroundId;
 }
+
+/** Reexporta o parser do fundo para quem monta um StoryAuthor. */
+export { toCharacterBackground };
 
 export interface Story {
   id: string;

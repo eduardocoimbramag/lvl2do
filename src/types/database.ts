@@ -175,7 +175,7 @@ export type StoriesFeedRow = {
   avatar_url: string | null;
   character_class: string;
   character_skin: string;
-  /** id do cenário atrás do personagem (ver @/data/characterBackgrounds). */
+  /** cenário escolhido pelo autor (ver @/data/characterBackgrounds). */
   character_background: string;
   level: number;
   is_me: boolean;

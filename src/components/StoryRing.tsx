@@ -49,6 +49,7 @@ export function StoryRing({ ring, isOwn = false, onOpen, onCompose }: StoryRingP
       level={author.level}
       size="story"
       shape="circle"
+      background={author.background}
       showLevel={false}
       className={cn(dimmed && "opacity-60 grayscale-[45%]")}
     />
@@ -88,15 +89,19 @@ export function StoryRing({ ring, isOwn = false, onOpen, onCompose }: StoryRingP
 
   if (isOwn) {
     return (
-      <div className="flex w-[104px] shrink-0 flex-col items-center gap-1.5 sm:w-[120px]">
-        <div className="flex items-center gap-2">
+      // A coluna tem a largura do anel — é o que faz o rótulo centralizar no
+      // CÍRCULO. O "+" fica fora do fluxo (absolute), senão empurraria o centro
+      // da coluna para a direita e o nome sairia do eixo. A margem à direita
+      // reserva o espaço que ele ocupa, para não colidir com o próximo anel.
+      <div className="relative mr-8 flex w-[72px] shrink-0 flex-col items-center gap-1.5 sm:mr-10 sm:w-[84px]">
+        <div className="relative">
           {ringButton}
-          {/* à DIREITA do ícone, fora da silhueta do anel */}
+          {/* à DIREITA do ícone, centrado na altura do anel */}
           <button
             type="button"
             onClick={onCompose}
             aria-label="Publicar story"
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 border-ink bg-brand-gradient shadow-glow-sm transition-transform duration-200 hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 focus-visible:ring-offset-ink sm:h-8 sm:w-8"
+            className="absolute left-full top-1/2 ml-1.5 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full border-2 border-ink bg-brand-gradient shadow-glow-sm transition-transform duration-200 hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 focus-visible:ring-offset-2 focus-visible:ring-offset-ink sm:h-8 sm:w-8"
           >
             <Plus size={15} strokeWidth={3} className="text-white" />
           </button>

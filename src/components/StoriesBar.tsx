@@ -5,7 +5,11 @@ import { StoryRing } from "./StoryRing";
 import { StoryComposer } from "./StoryComposer";
 import { StoryViewer } from "./StoryViewer";
 import { useAuth } from "./AuthProvider";
-import { toCharacterClass, type StoryRing as StoryRingData } from "@/data/stories";
+import {
+  toCharacterBackground,
+  toCharacterClass,
+  type StoryRing as StoryRingData,
+} from "@/data/stories";
 import { getStoriesFeed, markStoriesViewed, purgeMyStaleStoryObjects } from "@/lib/db/stories";
 
 /**
@@ -86,6 +90,7 @@ export function StoriesBar() {
           name: profile?.nickname || "Você",
           level: profile?.level ?? 1,
           characterClass: toCharacterClass(profile?.character_class ?? null),
+          background: toCharacterBackground(profile?.character_background),
         },
         isMe: true,
         hasUnseen: false,

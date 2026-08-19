@@ -1,5 +1,7 @@
 import Image from "next/image";
+import { CharacterBackdrop } from "./CharacterBackdrop";
 import { getCharacterImage, type CharacterClass } from "@/data/characterClasses";
+import type { CharacterBackgroundId } from "@/data/characterBackgrounds";
 import { cn } from "@/lib/utils";
 
 const SIZES = {
@@ -24,6 +26,8 @@ interface CharacterAvatarProps {
   showLevel?: boolean;
   /** formato da moldura. "circle" é usado no trilho de stories. */
   shape?: keyof typeof SHAPES;
+  /** cenário atrás do personagem. Omitido = fundo escuro padrão. */
+  background?: CharacterBackgroundId;
   className?: string;
 }
 
@@ -37,6 +41,7 @@ export function CharacterAvatar({
   size = "md",
   showLevel = true,
   shape = "square",
+  background = "none",
   className,
 }: CharacterAvatarProps) {
   const art = characterClass ? getCharacterImage(characterClass, level) : null;
@@ -50,13 +55,14 @@ export function CharacterAvatar({
           SIZES[size],
         )}
       >
+        <CharacterBackdrop background={background} />
         {art ? (
           <Image
             src={art}
             alt={characterClass ?? "Personagem"}
             fill
             sizes="80px"
-            className="object-cover"
+            className="relative object-cover"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-brand-gradient font-display text-lg font-bold text-white">

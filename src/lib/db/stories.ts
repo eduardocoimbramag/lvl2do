@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import { toCategory, toCharacterClass } from "@/data/stories";
+import { toCategory, toCharacterClass, toCharacterBackground } from "@/data/stories";
 import type { Story, StoryRing } from "@/data/stories";
 import type { StoriesFeedRow, StoriesFeedStoryJson } from "@/types/database";
 
@@ -68,6 +68,7 @@ function feedRowToRing(row: StoriesFeedRow): StoryRing {
       name,
       level: row.level,
       characterClass: toCharacterClass(row.character_class),
+      background: toCharacterBackground(row.character_background),
     },
     isMe: row.is_me,
     hasUnseen: row.has_unseen,
