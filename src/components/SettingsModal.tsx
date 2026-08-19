@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Settings, ShieldAlert, Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { ModalPortal } from "./ModalPortal";
 import { Button } from "./Button";
 import { useAuth } from "./AuthProvider";
 import { isDevUser } from "@/lib/devAccess";
@@ -24,87 +25,89 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const dev = isDevUser(user?.email);
 
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <button
-            type="button"
-            aria-label="Fechar"
-            onClick={onClose}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-          />
-
+    <ModalPortal>
+      <AnimatePresence>
+        {open && (
           <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Configurações"
-            initial={{ y: 40, opacity: 0, scale: 0.98 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 40, opacity: 0, scale: 0.98 }}
-            transition={{ type: "spring", damping: 26, stiffness: 280 }}
-            className="card-surface relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-b-none rounded-t-3xl p-6 sm:rounded-3xl"
+            className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
           >
-            <div className="mb-5 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-brand-light">
-                  <Settings size={18} />
-                </span>
-                <h2 className="font-display text-lg font-semibold text-soft">Configurações</h2>
+            <button
+              type="button"
+              aria-label="Fechar"
+              onClick={onClose}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            />
+
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Configurações"
+              initial={{ y: 40, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0, scale: 0.98 }}
+              transition={{ type: "spring", damping: 26, stiffness: 280 }}
+              className="card-surface relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-b-none rounded-t-3xl p-6 sm:rounded-3xl"
+            >
+              <div className="mb-5 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-brand-light">
+                    <Settings size={18} />
+                  </span>
+                  <h2 className="font-display text-lg font-semibold text-soft">Configurações</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Fechar"
+                  className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/5 hover:text-soft"
+                >
+                  <X size={18} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Fechar"
-                className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/5 hover:text-soft"
-              >
-                <X size={18} />
-              </button>
-            </div>
 
-            <div className="-mr-2 space-y-5 overflow-y-auto pr-2">
-              {/* conta */}
-              <section>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                  Conta
-                </h3>
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-                  <p className="text-sm text-soft">{user?.email ?? "—"}</p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    Gerencie seu perfil na aba <span className="text-brand-light">Perfil</span>.
-                  </p>
-                </div>
-              </section>
+              <div className="-mr-2 space-y-5 overflow-y-auto pr-2">
+                {/* conta */}
+                <section>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                    Conta
+                  </h3>
+                  <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                    <p className="text-sm text-soft">{user?.email ?? "—"}</p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      Gerencie seu perfil na aba <span className="text-brand-light">Perfil</span>.
+                    </p>
+                  </div>
+                </section>
 
-              {/* preferências (placeholder para o futuro) */}
-              <section>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                  Preferências
-                </h3>
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-                  <p className="text-sm text-muted">
-                    Mais opções de personalização chegarão em breve.
-                  </p>
-                </div>
-              </section>
+                {/* preferências (placeholder para o futuro) */}
+                <section>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                    Preferências
+                  </h3>
+                  <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                    <p className="text-sm text-muted">
+                      Mais opções de personalização chegarão em breve.
+                    </p>
+                  </div>
+                </section>
 
-              {/* área de ADM — só para dev */}
-              {dev && <AdminArea />}
-            </div>
+                {/* área de ADM — só para dev */}
+                {dev && <AdminArea />}
+              </div>
 
-            <div className="mt-6">
-              <Button variant="secondary" className="w-full" onClick={onClose}>
-                Fechar
-              </Button>
-            </div>
+              <div className="mt-6">
+                <Button variant="secondary" className="w-full" onClick={onClose}>
+                  Fechar
+                </Button>
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </ModalPortal>
   );
 }
 

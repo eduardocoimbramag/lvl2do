@@ -31,6 +31,8 @@ export type ProfileRow = {
   avatar_url: string | null;
   character_class: string;
   character_skin: string;
+  /** id do cenário atrás do personagem (ver @/data/characterBackgrounds). */
+  character_background: string;
   total_xp: number;
   level: number;
   /** XP já ganho no dia de `daily_xp_date` (limite diário). */
@@ -86,6 +88,8 @@ export type PublicProfileRow = {
   avatar_url: string | null;
   character_class: string;
   character_skin: string;
+  /** id do cenário atrás do personagem (ver @/data/characterBackgrounds). */
+  character_background: string;
   level: number;
   total_xp: number;
   year_xp: number;
@@ -113,4 +117,70 @@ export type XpEventRow = {
   category: string | null;
   mission_id: string | null;
   created_at: string;
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Stories (24 h) — tabelas `stories` / `story_views` + RPC get_stories_feed  */
+/* -------------------------------------------------------------------------- */
+
+/** Linha da tabela `stories`. */
+export type StoryRow = {
+  id: string;
+  user_id: string;
+  /** chave do objeto no bucket privado "stories": "{user_id}/{story_id}.jpg". */
+  image_path: string;
+  width: number | null;
+  height: number | null;
+  caption: string | null;
+  mission_id: string | null;
+  /** snapshot no momento da publicação: sobrevive a renomear/apagar a missão. */
+  mission_title: string | null;
+  mission_category: string | null;
+  created_at: string;
+  expires_at: string;
+};
+
+/** Linha da tabela `story_views` (quem viu o quê). */
+export type StoryViewRow = {
+  story_id: string;
+  viewer_id: string;
+  viewed_at: string;
+};
+
+/**
+ * Item do array `stories` (jsonb) devolvido por `get_stories_feed()`.
+ * As chaves já vêm em camelCase — o `jsonb_build_object` do SQL as monta assim.
+ */
+export type StoriesFeedStoryJson = {
+  id: string;
+  imagePath: string;
+  width: number | null;
+  height: number | null;
+  caption: string | null;
+  missionId: string | null;
+  missionTitle: string | null;
+  missionCategory: string | null;
+  createdAt: string;
+  expiresAt: string;
+  seen: boolean;
+  /** audiência: preenchido só nos stories do próprio usuário, senão null. */
+  viewCount: number | null;
+};
+
+/** Linha de `get_stories_feed()` — um autor com todos os seus stories vivos. */
+export type StoriesFeedRow = {
+  author_id: string;
+  nickname: string | null;
+  tag: string | null;
+  avatar_url: string | null;
+  character_class: string;
+  character_skin: string;
+  /** id do cenário atrás do personagem (ver @/data/characterBackgrounds). */
+  character_background: string;
+  level: number;
+  is_me: boolean;
+  has_unseen: boolean;
+  story_count: number;
+  latest_at: string;
+  stories: StoriesFeedStoryJson[];
 };

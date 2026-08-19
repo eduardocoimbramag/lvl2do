@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { FriendCard } from "@/components/FriendCard";
 import { FriendProfileModal } from "@/components/FriendProfileModal";
 import { AddFriendModal } from "@/components/AddFriendModal";
+import { StoriesBar } from "@/components/StoriesBar";
 import { AnimatedGrid } from "@/components/Section";
 import { useAuth } from "@/components/AuthProvider";
 import { getFriends, searchProfiles, addFriend, removeFriend } from "@/lib/db/social";
@@ -64,7 +65,6 @@ export default function FriendsPage() {
     <>
       <PageHeader
         title="Amigos"
-        subtitle="Acompanhe a evolução de quem joga com você."
         action={
           <Button onClick={() => setAddOpen(true)}>
             <UserPlus size={16} /> Adicionar amigo
@@ -72,10 +72,7 @@ export default function FriendsPage() {
         }
       />
 
-      <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-muted">
-        <Users size={13} className="text-brand-light" />
-        {friends.length} {friends.length === 1 ? "amigo" : "amigos"}
-      </div>
+      <StoriesBar />
 
       {loading ? (
         <div className="card-surface flex flex-col items-center gap-3 p-12 text-center">

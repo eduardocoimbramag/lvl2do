@@ -17,6 +17,7 @@ import {
 } from "@/data/types";
 import { shiftMeta } from "./CategoryBadge";
 import { SchedulePopover } from "./SchedulePopover";
+import { ModalPortal } from "./ModalPortal";
 import { Button } from "./Button";
 import { cn } from "@/lib/utils";
 
@@ -146,227 +147,229 @@ export function NewMissionModal({
     schedule.type !== "today" ? describeSchedule(schedule) : null;
 
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          {/* backdrop */}
-          <button
-            type="button"
-            aria-label="Fechar"
-            onClick={onClose}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-          />
-
+    <ModalPortal>
+      <AnimatePresence>
+        {open && (
           <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-label={editing ? "Editar missão" : "Nova missão"}
-            initial={{ y: 40, opacity: 0, scale: 0.98 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 40, opacity: 0, scale: 0.98 }}
-            transition={{ type: "spring", damping: 26, stiffness: 280 }}
-            className="card-surface relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-b-none rounded-t-3xl p-6 sm:rounded-3xl"
+            className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
           >
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold text-soft">
-                {editing ? "Editar missão" : "Nova missão"}
-              </h2>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Fechar"
-                className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/5 hover:text-soft"
-              >
-                <X size={18} />
-              </button>
-            </div>
+            {/* backdrop */}
+            <button
+              type="button"
+              aria-label="Fechar"
+              onClick={onClose}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            />
 
-            <div className="-mr-2 space-y-5 overflow-y-auto pr-2">
-              {/* título */}
-              <div>
-                <label className="mb-1.5 block text-sm text-muted">Título da missão</label>
-                <input
-                  autoFocus
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ex.: Estudar 1 capítulo de React"
-                  className="w-full rounded-xl border border-white/10 bg-ink px-4 py-2.5 text-sm text-soft placeholder:text-muted/60 focus:border-brand/50 focus:outline-none focus:ring-2 focus:ring-brand/30"
-                />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label={editing ? "Editar missão" : "Nova missão"}
+              initial={{ y: 40, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0, scale: 0.98 }}
+              transition={{ type: "spring", damping: 26, stiffness: 280 }}
+              className="card-surface relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-b-none rounded-t-3xl p-6 sm:rounded-3xl"
+            >
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="font-display text-lg font-semibold text-soft">
+                  {editing ? "Editar missão" : "Nova missão"}
+                </h2>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Fechar"
+                  className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/5 hover:text-soft"
+                >
+                  <X size={18} />
+                </button>
               </div>
 
-              {/* subtítulo (opcional) */}
-              <div>
-                <label className="mb-1.5 block text-sm text-muted">
-                  Subtítulo <span className="text-muted/60">(opcional)</span>
-                </label>
-                <input
-                  value={subtitle}
-                  onChange={(e) => setSubtitle(e.target.value)}
-                  placeholder="Ex.: Avançar no roadmap de frontend"
-                  className="w-full rounded-xl border border-white/10 bg-ink px-4 py-2.5 text-sm text-soft placeholder:text-muted/60 focus:border-brand/50 focus:outline-none focus:ring-2 focus:ring-brand/30"
-                />
-              </div>
-
-              {/* categoria — define o card de destino da missão */}
-              <div>
-                <label className="mb-1.5 block text-sm text-muted">Categoria (card de destino)</label>
-                <div className="flex flex-wrap gap-2">
-                  {CATEGORIES.map((c) => (
-                    <button
-                      type="button"
-                      key={c}
-                      onClick={() => setCategory(c)}
-                      className={cn(
-                        "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
-                        category === c
-                          ? "border-brand/50 bg-brand/15 text-brand-light"
-                          : "border-white/10 bg-white/5 text-muted hover:text-soft",
-                      )}
-                    >
-                      {c}
-                    </button>
-                  ))}
+              <div className="-mr-2 space-y-5 overflow-y-auto pr-2">
+                {/* título */}
+                <div>
+                  <label className="mb-1.5 block text-sm text-muted">Título da missão</label>
+                  <input
+                    autoFocus
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Ex.: Estudar 1 capítulo de React"
+                    className="w-full rounded-xl border border-white/10 bg-ink px-4 py-2.5 text-sm text-soft placeholder:text-muted/60 focus:border-brand/50 focus:outline-none focus:ring-2 focus:ring-brand/30"
+                  />
                 </div>
-              </div>
 
-              {/* turno */}
-              <div>
-                <label className="mb-1.5 block text-sm text-muted">Turno</label>
-                <div className="flex flex-wrap gap-2">
-                  {SHIFTS.map((s) => {
-                    const { icon: Icon } = shiftMeta[s];
-                    const active = shift === s;
-                    return (
+                {/* subtítulo (opcional) */}
+                <div>
+                  <label className="mb-1.5 block text-sm text-muted">
+                    Subtítulo <span className="text-muted/60">(opcional)</span>
+                  </label>
+                  <input
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.target.value)}
+                    placeholder="Ex.: Avançar no roadmap de frontend"
+                    className="w-full rounded-xl border border-white/10 bg-ink px-4 py-2.5 text-sm text-soft placeholder:text-muted/60 focus:border-brand/50 focus:outline-none focus:ring-2 focus:ring-brand/30"
+                  />
+                </div>
+
+                {/* categoria — define o card de destino da missão */}
+                <div>
+                  <label className="mb-1.5 block text-sm text-muted">Categoria (card de destino)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {CATEGORIES.map((c) => (
                       <button
                         type="button"
-                        key={s}
-                        onClick={() => setShift(s)}
+                        key={c}
+                        onClick={() => setCategory(c)}
                         className={cn(
-                          "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
-                          active
+                          "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
+                          category === c
                             ? "border-brand/50 bg-brand/15 text-brand-light"
                             : "border-white/10 bg-white/5 text-muted hover:text-soft",
                         )}
                       >
-                        <Icon size={13} />
-                        {s}
+                        {c}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* dificuldade — com indicador de XP por nível */}
-              <div>
-                <label className="mb-1.5 block text-sm text-muted">Dificuldade</label>
-                <div className="flex flex-wrap gap-2">
-                  {DIFFICULTIES.map((d) => {
-                    const active = difficulty === d;
-                    return (
-                      <button
-                        type="button"
-                        key={d}
-                        onClick={() => setDifficulty(d)}
-                        className={cn(
-                          "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
-                          active
-                            ? "border-brand/50 bg-brand/15 text-brand-light"
-                            : "border-white/10 bg-white/5 text-muted hover:text-soft",
-                        )}
-                      >
-                        {d}
-                        <span
+                {/* turno */}
+                <div>
+                  <label className="mb-1.5 block text-sm text-muted">Turno</label>
+                  <div className="flex flex-wrap gap-2">
+                    {SHIFTS.map((s) => {
+                      const { icon: Icon } = shiftMeta[s];
+                      const active = shift === s;
+                      return (
+                        <button
+                          type="button"
+                          key={s}
+                          onClick={() => setShift(s)}
                           className={cn(
-                            "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold",
+                            "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
                             active
-                              ? "bg-brand/20 text-brand-light"
-                              : "bg-white/5 text-muted",
+                              ? "border-brand/50 bg-brand/15 text-brand-light"
+                              : "border-white/10 bg-white/5 text-muted hover:text-soft",
                           )}
                         >
-                          <Zap size={10} /> {XP_BY_DIFFICULTY[d]}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          <Icon size={13} />
+                          {s}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              {/* agendamento */}
-              <div>
-                <label className="mb-1.5 block text-sm text-muted">Agendamento</label>
-                <div className="flex flex-wrap gap-2">
-                  {SCHEDULE_OPTIONS.map((opt) => {
-                    const Icon = opt.icon;
-                    const active = schedule.type === opt.type;
-                    return (
+                {/* dificuldade — com indicador de XP por nível */}
+                <div>
+                  <label className="mb-1.5 block text-sm text-muted">Dificuldade</label>
+                  <div className="flex flex-wrap gap-2">
+                    {DIFFICULTIES.map((d) => {
+                      const active = difficulty === d;
+                      return (
+                        <button
+                          type="button"
+                          key={d}
+                          onClick={() => setDifficulty(d)}
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
+                            active
+                              ? "border-brand/50 bg-brand/15 text-brand-light"
+                              : "border-white/10 bg-white/5 text-muted hover:text-soft",
+                          )}
+                        >
+                          {d}
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold",
+                              active
+                                ? "bg-brand/20 text-brand-light"
+                                : "bg-white/5 text-muted",
+                            )}
+                          >
+                            <Zap size={10} /> {XP_BY_DIFFICULTY[d]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* agendamento */}
+                <div>
+                  <label className="mb-1.5 block text-sm text-muted">Agendamento</label>
+                  <div className="flex flex-wrap gap-2">
+                    {SCHEDULE_OPTIONS.map((opt) => {
+                      const Icon = opt.icon;
+                      const active = schedule.type === opt.type;
+                      return (
+                        <button
+                          type="button"
+                          key={opt.type}
+                          onClick={() => handleScheduleOption(opt.type)}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
+                            active
+                              ? "border-brand/50 bg-brand/15 text-brand-light"
+                              : "border-white/10 bg-white/5 text-muted hover:text-soft",
+                          )}
+                        >
+                          <Icon size={13} />
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* resumo do agendamento recorrente + editar (lápis) */}
+                  {scheduleSummary && (
+                    <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl border border-brand/20 bg-brand/5 px-4 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-[11px] uppercase tracking-wide text-muted">
+                          {schedule.type === "weekly" ? "Dias da semana" : "Datas específicas"}
+                        </p>
+                        <p className="truncate text-sm font-medium text-soft">{scheduleSummary}</p>
+                      </div>
                       <button
                         type="button"
-                        key={opt.type}
-                        onClick={() => handleScheduleOption(opt.type)}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
-                          active
-                            ? "border-brand/50 bg-brand/15 text-brand-light"
-                            : "border-white/10 bg-white/5 text-muted hover:text-soft",
-                        )}
+                        onClick={() => setPopover(schedule.type === "weekly" ? "weekly" : "dates")}
+                        aria-label="Editar agendamento"
+                        className="shrink-0 rounded-lg border border-white/10 bg-white/5 p-1.5 text-muted transition-colors hover:border-brand/40 hover:text-brand-light"
                       >
-                        <Icon size={13} />
-                        {opt.label}
+                        <Pencil size={14} />
                       </button>
-                    );
-                  })}
-                </div>
-
-                {/* resumo do agendamento recorrente + editar (lápis) */}
-                {scheduleSummary && (
-                  <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl border border-brand/20 bg-brand/5 px-4 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-[11px] uppercase tracking-wide text-muted">
-                        {schedule.type === "weekly" ? "Dias da semana" : "Datas específicas"}
-                      </p>
-                      <p className="truncate text-sm font-medium text-soft">{scheduleSummary}</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setPopover(schedule.type === "weekly" ? "weekly" : "dates")}
-                      aria-label="Editar agendamento"
-                      className="shrink-0 rounded-lg border border-white/10 bg-white/5 p-1.5 text-muted transition-colors hover:border-brand/40 hover:text-brand-light"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="mt-6 flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button className="flex-1" onClick={handleSubmit} disabled={!title.trim()}>
-                {editing ? "Salvar alterações" : "Criar missão"}
-              </Button>
-            </div>
+              <div className="mt-6 flex gap-3">
+                <Button variant="secondary" className="flex-1" onClick={onClose}>
+                  Cancelar
+                </Button>
+                <Button className="flex-1" onClick={handleSubmit} disabled={!title.trim()}>
+                  {editing ? "Salvar alterações" : "Criar missão"}
+                </Button>
+              </div>
+            </motion.div>
+
+            {/* pop-up de agendamento (por cima do modal) */}
+            <SchedulePopover
+              open={popover !== null}
+              mode={popover ?? "weekly"}
+              initial={schedule}
+              onClose={() => setPopover(null)}
+              onConfirm={(s) => {
+                setSchedule(s);
+                setPopover(null);
+              }}
+            />
           </motion.div>
-
-          {/* pop-up de agendamento (por cima do modal) */}
-          <SchedulePopover
-            open={popover !== null}
-            mode={popover ?? "weekly"}
-            initial={schedule}
-            onClose={() => setPopover(null)}
-            onConfirm={(s) => {
-              setSchedule(s);
-              setPopover(null);
-            }}
-          />
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </ModalPortal>
   );
 }

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
-import { AnimatedBackground } from "@/components/AnimatedBackground";
+import { AlertCircle, Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/Button";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { AuthField, authInputClass } from "@/components/auth/AuthField";
 import { createClient } from "@/lib/supabase/client";
+import { messageForCallbackError } from "@/lib/auth/authErrors";
 
 /** /login — autenticação por e-mail + senha (Supabase Auth). */
 export default function LoginPage() {
@@ -17,6 +19,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Motivo vindo do /auth/callback (ex.: link de confirmação expirado).
+  useEffect(() => {
+    const reason = messageForCallbackError(
+      new URLSearchParams(window.location.search).get("error"),
+    );
+    if (reason) setError(reason);
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,86 +50,82 @@ export default function LoginPage() {
   }
 
   return (
-    <>
-      <AnimatedBackground />
-      <main className="flex min-h-screen flex-col items-center justify-center px-5 py-12">
-        <Link
-          href="/"
-          className="mb-8 inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-soft"
-        >
-          <ArrowLeft size={16} /> Voltar ao início
-        </Link>
+    <AuthShell>
+      <div className="flex flex-col items-center text-center">
+        <Logo size="lg" href={undefined} />
+        <h1 className="mt-5 font-display text-2xl font-bold text-soft">Entrar</h1>
+        <p className="mt-1 text-sm text-muted">Continue sua jornada de evolução.</p>
+      </div>
 
-        <div className="card-surface w-full max-w-sm p-7 sm:p-8 shadow-glow">
-          <div className="flex flex-col items-center text-center">
-            <Logo size="lg" href={undefined} />
-            <h1 className="mt-5 font-display text-2xl font-bold text-soft">Entrar</h1>
-            <p className="mt-1 text-sm text-muted">Continue sua jornada de evolução.</p>
-          </div>
+      <form onSubmit={onSubmit} className="mt-7 space-y-4">
+        <AuthField icon={Mail}>
+          <input
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="seu@email.com"
+            className={authInputClass}
+          />
+        </AuthField>
+        <AuthField icon={Lock}>
+          <input
+            type={showPassword ? "text" : "password"}
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Senha"
+            className={authInputClass}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            aria-pressed={showPassword}
+            className="shrink-0 rounded-md p-1 text-muted transition-colors hover:text-soft"
+          >
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        </AuthField>
 
-          <form onSubmit={onSubmit} className="mt-7 space-y-4">
-            <Field icon={Mail}>
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-                className="w-full bg-transparent py-2.5 text-sm text-soft placeholder:text-muted/60 focus:outline-none"
-              />
-            </Field>
-            <Field icon={Lock}>
-              <input
-                type={showPassword ? "text" : "password"}
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Senha"
-                className="w-full bg-transparent py-2.5 text-sm text-soft placeholder:text-muted/60 focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                aria-pressed={showPassword}
-                className="shrink-0 rounded-md p-1 text-muted transition-colors hover:text-soft"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </Field>
-
-            {error && <p className="text-sm text-red-400">{error}</p>}
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" /> Entrando...
-                </>
-              ) : (
-                "Entrar"
-              )}
-            </Button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-muted">
-            Não tem conta?{" "}
-            <Link href="/register" className="font-medium text-brand-light hover:text-brand-vivid">
-              Registre-se
-            </Link>
-          </p>
+        <div className="flex justify-end">
+          <Link
+            href="/forgot-password"
+            className="text-xs font-medium text-muted transition-colors hover:text-brand-light"
+          >
+            Esqueci minha senha
+          </Link>
         </div>
-      </main>
-    </>
-  );
-}
 
-function Field({ icon: Icon, children }: { icon: typeof Mail; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-ink px-3.5 focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/30">
-      <Icon size={16} className="shrink-0 text-muted" />
-      {children}
-    </div>
+        {error && (
+          <p
+            role="alert"
+            className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+          >
+            <AlertCircle size={15} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </p>
+        )}
+
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 size={16} className="animate-spin" /> Entrando...
+            </>
+          ) : (
+            "Entrar"
+          )}
+        </Button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-muted">
+        Não tem conta?{" "}
+        <Link href="/register" className="font-medium text-brand-light hover:text-brand-vivid">
+          Registre-se
+        </Link>
+      </p>
+    </AuthShell>
   );
 }

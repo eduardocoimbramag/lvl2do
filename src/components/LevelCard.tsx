@@ -1,11 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
+import { CharacterFrame } from "./CharacterFrame";
 import { ProgressBar } from "./ProgressBar";
 import { XpBolt } from "./AnimatedSvgIcon";
 import { StreakIndicator } from "./StreakIndicator";
 import { getCharacterImage, isCharacterClass } from "@/data/characterClasses";
+import type { CharacterBackgroundId } from "@/data/characterBackgrounds";
 import { cn } from "@/lib/utils";
 
 interface LevelCardProps {
@@ -21,6 +22,8 @@ interface LevelCardProps {
    * prioridade sobre a derivação automática pelo nível. Opcional.
    */
   artSrc?: string | null;
+  /** cenário atrás do personagem (preferência do usuário). */
+  background?: CharacterBackgroundId;
   /**
    * Dias consecutivos de streak (sequência). Quando informado, mostra o
    * indicador de streak no canto superior direito. Opcional.
@@ -40,6 +43,7 @@ export function LevelCard({
   displayName,
   characterClass,
   artSrc: artSrcProp,
+  background = "none",
   streakDays,
   className,
 }: LevelCardProps) {
@@ -69,22 +73,18 @@ export function LevelCard({
       )}
 
       {/* moldura com a arte do personagem */}
-      <div className="relative aspect-square w-36 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-ink shadow-glow sm:w-44">
-        {artSrc ? (
-          <Image
-            src={artSrc}
-            alt={`Classe ${characterClass}`}
-            fill
-            sizes="(max-width: 640px) 9rem, 11rem"
-            className="object-cover"
-          />
-        ) : (
+      <CharacterFrame
+        artSrc={artSrc}
+        alt={`Classe ${characterClass}`}
+        background={background}
+        className="aspect-square w-36 rounded-2xl sm:w-44"
+        fallback={
           // sem classe ainda → mostra o nível na moldura
           <div className="flex h-full w-full items-center justify-center bg-brand-gradient text-white">
             <span className="font-display text-5xl font-bold">{level}</span>
           </div>
-        )}
-      </div>
+        }
+      />
 
       {/* conteúdo à direita — distribuído na altura do card */}
       <div className="relative flex min-w-0 flex-1 flex-col justify-center gap-5">

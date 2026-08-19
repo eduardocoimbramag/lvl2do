@@ -6,6 +6,14 @@ const SIZES = {
   sm: "h-12 w-12",
   md: "h-16 w-16",
   lg: "h-20 w-20",
+  /** trilho de stories: cresce no desktop sem duplicar o componente. */
+  story: "h-14 w-14 sm:h-16 sm:w-16",
+} as const;
+
+/** Moldura: quadrada (padrão do app) ou circular (trilho de stories). */
+const SHAPES = {
+  square: "rounded-xl",
+  circle: "rounded-full",
 } as const;
 
 interface CharacterAvatarProps {
@@ -14,6 +22,8 @@ interface CharacterAvatarProps {
   size?: keyof typeof SIZES;
   /** mostra o selo de nível no canto. */
   showLevel?: boolean;
+  /** formato da moldura. "circle" é usado no trilho de stories. */
+  shape?: keyof typeof SHAPES;
   className?: string;
 }
 
@@ -26,6 +36,7 @@ export function CharacterAvatar({
   level,
   size = "md",
   showLevel = true,
+  shape = "square",
   className,
 }: CharacterAvatarProps) {
   const art = characterClass ? getCharacterImage(characterClass, level) : null;
@@ -34,7 +45,8 @@ export function CharacterAvatar({
     <div className={cn("relative shrink-0", className)}>
       <div
         className={cn(
-          "relative overflow-hidden rounded-xl border border-white/10 bg-ink shadow-glow-sm",
+          "relative overflow-hidden border border-white/10 bg-ink shadow-glow-sm",
+          SHAPES[shape],
           SIZES[size],
         )}
       >

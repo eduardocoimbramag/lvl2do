@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { motion } from "framer-motion";
-import { Zap, CheckCircle2, Flame, Trophy, Calendar, Repeat, Shirt } from "lucide-react";
+import { Zap, CheckCircle2, Flame, Trophy, Calendar, Repeat, Shirt, Image as ImageIcon } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -13,12 +12,15 @@ import { Button } from "@/components/Button";
 import { ReferralSection } from "@/components/ReferralSection";
 import { ChangeClassModal } from "@/components/ChangeClassModal";
 import { ChangeOutfitModal } from "@/components/ChangeOutfitModal";
+import { ChangeBackgroundModal } from "@/components/ChangeBackgroundModal";
+import { CharacterFrame } from "@/components/CharacterFrame";
 import { EditProfileModal } from "@/components/EditProfileModal";
 import { useAuth } from "@/components/AuthProvider";
 import { useAppStats, useAppMissions } from "@/hooks/AppStateProvider";
 import { useProfileIdentity } from "@/hooks/useProfileIdentity";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { useCharacterSkin } from "@/hooks/useCharacterSkin";
+import { useCharacterBackground } from "@/hooks/useCharacterBackground";
 import { isCharacterClass } from "@/data/characterClasses";
 import { CATEGORIES } from "@/data/types";
 import { userProfile } from "@/data/mockStats";
@@ -38,9 +40,11 @@ export default function ProfilePage() {
   const { allMissions } = useAppMissions();
   const { characterClass } = useCharacterClass();
   const { resolveImage } = useCharacterSkin();
+  const { background } = useCharacterBackground();
   const identity = useProfileIdentity();
   const [classModalOpen, setClassModalOpen] = useState(false);
   const [outfitModalOpen, setOutfitModalOpen] = useState(false);
+  const [bgModalOpen, setBgModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const displayName = identity.displayName ?? userProfile.name;
@@ -76,21 +80,17 @@ export default function ProfilePage() {
         <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand/20 blur-3xl" />
         <div className="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
           {/* moldura com a arte do personagem (igual ao dashboard) */}
-          <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-3xl border border-white/10 bg-ink shadow-glow sm:h-44 sm:w-44">
-            {artSrc ? (
-              <Image
-                src={artSrc}
-                alt={`Classe ${characterClass}`}
-                fill
-                sizes="(max-width: 640px) 9rem, 11rem"
-                className="object-cover"
-              />
-            ) : (
+          <CharacterFrame
+            artSrc={artSrc}
+            alt={`Classe ${characterClass}`}
+            background={background}
+            className="h-36 w-36 rounded-3xl sm:h-44 sm:w-44"
+            fallback={
               <div className="flex h-full w-full items-center justify-center bg-brand-gradient font-display text-6xl font-bold text-white">
                 {displayName.charAt(0)}
               </div>
-            )}
-          </div>
+            }
+          />
           <div className="flex-1">
             <h2 className="font-display text-2xl font-bold text-soft">
               {displayName}
@@ -145,10 +145,23 @@ export default function ProfilePage() {
             >
               <Shirt size={16} /> Trocar roupa
             </Button>
+            <Button
+              variant="secondary"
+              className="w-full sm:w-auto"
+              onClick={() => setBgModalOpen(true)}
+            >
+              <ImageIcon size={16} /> Trocar fundo
+            </Button>
           </div>
         </div>
       </motion.div>
 
+      <ChangeBackgroundModal
+        open={bgModalOpen}
+        onClose={() => setBgModalOpen(false)}
+        artSrc={artSrc}
+        alt={`Classe ${characterClass}`}
+      />
       <EditProfileModal open={editModalOpen} onClose={() => setEditModalOpen(false)} />
       <ChangeClassModal open={classModalOpen} onClose={() => setClassModalOpen(false)} />
       {isCharacterClass(characterClass) && (

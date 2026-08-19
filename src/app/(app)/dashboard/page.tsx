@@ -15,6 +15,7 @@ import { useAppStats, useAppMissions } from "@/hooks/AppStateProvider";
 import { useProfileIdentity } from "@/hooks/useProfileIdentity";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { useCharacterSkin } from "@/hooks/useCharacterSkin";
+import { useCharacterBackground } from "@/hooks/useCharacterBackground";
 import { isCharacterClass } from "@/data/characterClasses";
 import { CATEGORIES, toISODate } from "@/data/types";
 import { userProfile } from "@/data/mockStats";
@@ -25,6 +26,7 @@ export default function DashboardPage() {
   const { missions, toggle, isDoneForDay } = useAppMissions();
   const { characterClass } = useCharacterClass();
   const { resolveImage } = useCharacterSkin();
+  const { background } = useCharacterBackground();
   const { displayName } = useProfileIdentity();
 
   // nome exibido: nickname (se houver) ou nome do Clerk, com fallback
@@ -73,6 +75,7 @@ export default function DashboardPage() {
           displayName={fullName}
           characterClass={characterClass}
           artSrc={characterArt}
+          background={background}
           streakDays={streak}
           className="lg:col-span-2"
         />

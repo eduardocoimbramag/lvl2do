@@ -8,43 +8,9 @@ import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/Button";
 import { createClient } from "@/lib/supabase/client";
-import type { AuthError } from "@supabase/supabase-js";
-
-/**
- * Traduz o erro do Supabase signUp para uma mensagem clara em pt-BR.
- * Usa `code`/`status`/`message` para distinguir os casos mais comuns.
- */
-function messageForSignUpError(error: AuthError): string {
-  const code = (error as { code?: string }).code ?? "";
-  const msg = error.message?.toLowerCase() ?? "";
-
-  // limite de envio de e-mail do Supabase (servidor SMTP padrão é bem restrito)
-  if (
-    error.status === 429 ||
-    code === "over_email_send_rate_limit" ||
-    msg.includes("rate limit") ||
-    msg.includes("email rate")
-  ) {
-    return "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente de novo (limite de envio de e-mails).";
-  }
-  // e-mail já cadastrado
-  if (code === "user_already_exists" || msg.includes("already")) {
-    return "Este e-mail já está cadastrado. Tente fazer login.";
-  }
-  // senha fraca
-  if (code === "weak_password" || msg.includes("password")) {
-    return "A senha é muito fraca. Use ao menos 6 caracteres.";
-  }
-  // e-mail inválido
-  if (code === "email_address_invalid" || msg.includes("invalid") && msg.includes("email")) {
-    return "E-mail inválido. Verifique e tente novamente.";
-  }
-  // cadastro desativado no projeto
-  if (code === "signup_disabled" || msg.includes("signups not allowed") || msg.includes("disabled")) {
-    return "Cadastros estão temporariamente desativados. Tente novamente mais tarde.";
-  }
-  return "Não foi possível criar a conta. Tente novamente.";
-}
+import { AuthField, authInputClass } from "@/components/auth/AuthField";
+import { messageForSignUpError } from "@/lib/auth/authErrors";
+import { MIN_PASSWORD_LENGTH, validatePassword } from "@/lib/auth/password";
 
 /** Impede colar/soltar texto nos campos de senha (obriga digitar). */
 function blockPaste(e: React.ClipboardEvent<HTMLInputElement> | React.DragEvent<HTMLInputElement>) {
@@ -72,8 +38,9 @@ export default function RegisterPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
-    if (password.length < 6) {
-      setError("A senha precisa ter ao menos 6 caracteres.");
+    const policyError = validatePassword(password);
+    if (policyError) {
+      setError(policyError);
       return;
     }
     if (password !== confirmPassword) {
@@ -148,7 +115,7 @@ export default function RegisterPage() {
               </div>
 
               <form onSubmit={onSubmit} className="mt-7 space-y-4">
-                <Field icon={User}>
+                <AuthField icon={User}>
                   <input
                     type="text"
                     required
@@ -156,10 +123,10 @@ export default function RegisterPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Seu nome"
-                    className="w-full bg-transparent py-2.5 text-sm text-soft placeholder:text-muted/60 focus:outline-none"
+                    className={authInputClass}
                   />
-                </Field>
-                <Field icon={Mail}>
+                </AuthField>
+                <AuthField icon={Mail}>
                   <input
                     type="email"
                     required
@@ -167,10 +134,10 @@ export default function RegisterPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seu@email.com"
-                    className="w-full bg-transparent py-2.5 text-sm text-soft placeholder:text-muted/60 focus:outline-none"
+                    className={authInputClass}
                   />
-                </Field>
-                <Field icon={Lock}>
+                </AuthField>
+                <AuthField icon={Lock}>
                   <input
                     type="password"
                     required
@@ -179,11 +146,11 @@ export default function RegisterPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     onPaste={blockPaste}
                     onDrop={blockPaste}
-                    placeholder="Senha (mín. 6 caracteres)"
-                    className="w-full bg-transparent py-2.5 text-sm text-soft placeholder:text-muted/60 focus:outline-none"
+                    placeholder={`Senha (mín. ${MIN_PASSWORD_LENGTH} caracteres)`}
+                    className={authInputClass}
                   />
-                </Field>
-                <Field icon={Lock}>
+                </AuthField>
+                <AuthField icon={Lock}>
                   <input
                     type="password"
                     required
@@ -193,9 +160,9 @@ export default function RegisterPage() {
                     onPaste={blockPaste}
                     onDrop={blockPaste}
                     placeholder="Confirmar senha"
-                    className="w-full bg-transparent py-2.5 text-sm text-soft placeholder:text-muted/60 focus:outline-none"
+                    className={authInputClass}
                   />
-                </Field>
+                </AuthField>
 
                 {/* feedback ao vivo de coincidência (só quando o usuário começou a confirmar) */}
                 {confirmPassword.length > 0 && confirmPassword !== password && (
@@ -233,14 +200,5 @@ export default function RegisterPage() {
         </div>
       </main>
     </>
-  );
-}
-
-function Field({ icon: Icon, children }: { icon: typeof Mail; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-ink px-3.5 focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/30">
-      <Icon size={16} className="shrink-0 text-muted" />
-      {children}
-    </div>
   );
 }

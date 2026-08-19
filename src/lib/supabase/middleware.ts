@@ -1,9 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { canAccessApp } from "@/lib/access/accessRules";
+import { RECOVERY_COOKIE } from "@/lib/auth/recovery";
 
 /** Rotas públicas (sem necessidade de login). */
-const PUBLIC_PATHS = ["/login", "/register", "/auth"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/register",
+  "/auth",
+  "/forgot-password",
+  "/reset-password",
+];
 
 /**
  * Endpoints de webhook (ex.: RevenueCat). Não têm sessão de usuário e se
@@ -78,7 +85,26 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // /reset-password só existe para quem chegou por um link de recuperação
+  // válido (cookie httpOnly emitido pelo /auth/callback). Sem ele, uma sessão
+  // comum poderia trocar a senha sem conhecer a atual — ex.: aba esquecida
+  // aberta num computador compartilhado. A rota de escrita repete a checagem.
+  if (pathname === "/reset-password" && !request.cookies.get(RECOVERY_COOKIE)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/forgot-password";
+    url.search = "";
+    url.searchParams.set("error", "invalid_link");
+    return NextResponse.redirect(url);
+  }
+
   if (!user && !isPublic(pathname)) {
+    // Rotas de API respondem 401 em JSON — nunca redirecionam para o HTML do
+    // login. Um fetch() segue o redirect por padrão e receberia 200 com a
+    // página de login, fazendo o cliente achar que a operação deu certo.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Sessão expirada. Faça login novamente." }, { status: 401 });
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", pathname);

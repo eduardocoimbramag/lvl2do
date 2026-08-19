@@ -26,7 +26,7 @@ create table if not exists public.mission_completions (
   category_snapshot   text not null,
   difficulty_snapshot text not null,
   xp_snapshot         integer not null default 0,
-  /** 'completed' | 'reverted' ... */
+  /** status da conclusão: 'done' | 'failed' | 'reverted' (CHECK do banco). */
   status              text not null,
   /** dia (date) a que a conclusão pertence — usado por happened_on. */
   happened_on         date not null default current_date,
@@ -180,7 +180,7 @@ begin
   )
   values (
     v_uid, p_mission_id,
-    v_mission.title, v_mission.category, v_mission.difficulty, v_mission.xp, 'completed',
+    v_mission.title, v_mission.category, v_mission.difficulty, v_mission.xp, 'done',
     v_date, v_happened_at,
     v_date, v_mission.xp, v_credited, 'mission'
   )
@@ -256,7 +256,7 @@ begin
     user_id, mission_id, amount, reason, daily_cap_applied, happened_on, happened_at
   )
   values (
-    v_uid, p_mission_id, v_credited, 'mission_completion',
+    v_uid, p_mission_id, v_credited, 'mission_done',
     v_credited < v_mission.xp, v_date, v_happened_at
   );
 
@@ -307,7 +307,7 @@ begin
    limit 1;
   if not found then raise exception 'completion_not_found'; end if;
 
-  update mission_completions set reverted_at = now() where id = v_comp.id;
+  update mission_completions set reverted_at = now(), status = 'reverted' where id = v_comp.id;
 
   -- orçamento do dia após a reversão (soma das ativas restantes)
   select coalesce(sum(credited_xp), 0) into v_used_after
@@ -337,7 +337,7 @@ begin
     user_id, mission_id, amount, reason, daily_cap_applied, happened_on, happened_at
   )
   values (
-    v_uid, p_mission_id, -v_comp.credited_xp, 'mission_revert',
+    v_uid, p_mission_id, -v_comp.credited_xp, 'mission_reverted',
     false, v_comp.completed_for_date,
     case when v_is_today then now()
          else (v_comp.completed_for_date::timestamp + interval '12 hours') at time zone 'America/Sao_Paulo' end

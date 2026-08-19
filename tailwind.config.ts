@@ -37,6 +37,10 @@ const config: Config = {
       },
       backgroundImage: {
         "brand-gradient": "linear-gradient(135deg,#8B5CF6 0%,#A855F7 50%,#C084FC 100%)",
+        // anel do story (não visualizado). Conic para não deixar costura visível
+        // ao fechar o círculo — o linear de 135° deixa. Mesmos 3 hex da marca.
+        "story-ring":
+          "conic-gradient(from 210deg at 50% 50%,#8B5CF6 0deg,#A855F7 120deg,#C084FC 210deg,#8B5CF6 360deg)",
         "radial-glow":
           "radial-gradient(60% 60% at 50% 0%, rgba(139,92,246,0.18) 0%, rgba(5,5,9,0) 70%)",
       },
