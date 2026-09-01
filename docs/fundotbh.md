@@ -72,6 +72,46 @@ Troque a primeira linha do prompt para `1792 × 1024 pixels (7:4 aspect ratio)` 
 a linha do corte para `about 4% at the top and 4% at the bottom, and about 5% on
 each side`. O resto vale igual.
 
+### Estilo: pixel art detalhado, não 8-bit chapado
+
+Medi a arte que já está no projeto antes de escrever os prompts:
+
+| | Medida |
+|---|---|
+| `public/characters/guerreirolv1.webp` | 800 × 800 px, grade nativa de pixel ~400 px (blocos de 2 px) |
+| Cores distintas nas bordas de forma | **22.445** |
+| `public/bosses/orcboss.png` | 1254 × 1254 px, mesma linguagem visual |
+
+Vinte e dois mil tons não é 8-bit. A arte do jogo é **pixel art de RPG
+detalhado** — grade de pixel visível, mas com sombreado rico, anti-aliasing nas
+bordas e proporções semi-realistas. A referência certa é a era **16-bit
+(Super Nintendo)**, não NES.
+
+Por isso os prompts pedem *"16-bit era pixel art, Super Nintendo JRPG
+background"* e **não** *"8-bit"*. Se pedissem 8-bit de verdade — blocos enormes,
+paleta de 16 cores, sem sombreado — o cenário brigaria com os sprites em vez de
+combinar.
+
+### Quão grossa deve ser a grade de pixel
+
+Os prompts pedem a arte "como se desenhada a ~256 × 170 px e ampliada". Esse
+número vem de uma conta:
+
+- O cenário aparece a **392 px de largura** no desktop.
+- Com grade nativa de 256, cada pixel de arte vira ~1,5 px de tela: a textura de
+  pixel art é **perceptível** sem virar bloco gigante.
+- Se a grade fosse fina demais (400+, como a dos sprites), a pixelização
+  simplesmente sumiria no tamanho real e a imagem viraria uma ilustração comum.
+
+**Tensão que vale conhecer:** os sprites têm grade mais fina que a pedida para o
+cenário, mas aparecem bem pequenos (personagem a 132 px, vindo de uma arte de
+800 px). No tamanho real, a pixelização deles quase não se lê. Um cenário com
+grade um pouco mais grossa é o que faz o conjunto *parecer* pixel art. Se na
+prática ficar grosso demais, troque `256 by 170` por `384 by 256` no prompt.
+
+Os prompts também pedem **dithering** nos céus e nas transições de luz — é a
+marca registrada dos fundos 16-bit e o que evita degradê liso de ilustração.
+
 ### Idioma
 
 Os prompts estão **em inglês** de propósito — os modelos de imagem são bem mais
@@ -88,8 +128,8 @@ consistentes com termos de composição (*"lower third"*, *"horizon line"*,
 ```
 Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
 
-PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
-left and a boss on the right — will be composited on top of this image later, standing on
+PURPOSE: a background plate for a game UI panel. Two pixel-art character sprites — a hero on
+the left and a boss on the right — will be composited on top of this image later, standing on
 the ground. The image itself must contain no characters of any kind.
 
 SCENE: a wide medieval stone bridge, seen straight on at eye level. Low crenellated stone
@@ -110,14 +150,21 @@ COMPOSITION (strict):
   so keep them simple.
 
 LIGHT AND COLOR: warm golden afternoon sunlight raking in from the left, cool blue shadows,
-gentle atmospheric haze on the mountains. Muted and desaturated overall, low contrast in
-the centre of the frame. The four corners and the entire bottom edge must be clearly
-darker in a soft natural vignette, because white text will be overlaid there.
+gentle atmospheric haze on the mountains rendered with dithering. Muted and desaturated
+overall, low contrast in the centre of the frame. The four corners and the entire bottom
+edge must be clearly darker, because white text will be overlaid there.
 
-STYLE: stylized digital painting, painterly fantasy game background art, cohesive and calm.
+STYLE: 16-bit era pixel art, in the style of a Super Nintendo JRPG background. Drawn as if
+at roughly 256 by 170 pixels and then scaled up, so the square pixels are clearly visible.
+Hard-edged pixels with crisp boundaries, no blur, no soft focus, no photographic depth of
+field. Limited colour palette with ordered dithering for the sky gradients and for shading.
+Detailed and richly shaded within the pixel constraints — a high-quality modern pixel-art
+RPG background, not a simple flat 8-bit console screen.
 
 EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
 numbers, no logos, no watermark, no user interface elements, no frames and no borders.
+Not smooth vector art, not a photograph, not a 3D render, not a soft digital painting —
+the square pixel grid must be visible throughout.
 ```
 
 ### Variação 1B — Ponte sobre desfiladeiro, céu de fim de tarde
@@ -125,8 +172,8 @@ numbers, no logos, no watermark, no user interface elements, no frames and no bo
 ```
 Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
 
-PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
-left and a boss on the right — will be composited on top of this image later, standing on
+PURPOSE: a background plate for a game UI panel. Two pixel-art character sprites — a hero on
+the left and a boss on the right — will be composited on top of this image later, standing on
 the ground. The image itself must contain no characters of any kind.
 
 SCENE: a medieval stone bridge crossing a deep mountain gorge, viewed at eye level. Two
@@ -146,15 +193,23 @@ COMPOSITION (strict):
   58 percent of the width. The left and right thirds will be covered by character sprites,
   so keep them simple.
 
-LIGHT AND COLOR: soft directional late afternoon sunlight from the right, deep cool
-shadows, strong atmospheric perspective on the distant ridges. Desaturated cinematic
-palette, low contrast in the centre of the frame. The four corners and the entire bottom
-edge must be clearly darker in a soft vignette, because white text will be overlaid there.
+LIGHT AND COLOR: soft directional late afternoon sunlight from the right, deep cool shadows,
+layered atmospheric depth on the distant ridges, the sky gradient built with visible
+dithering bands. Desaturated cinematic palette, low contrast in the centre of the frame.
+The four corners and the entire bottom edge must be clearly darker, because white text
+will be overlaid there.
 
-STYLE: stylized digital painting, painterly fantasy game background art, cohesive and calm.
+STYLE: 16-bit era pixel art, in the style of a Super Nintendo JRPG background. Drawn as if
+at roughly 256 by 170 pixels and then scaled up, so the square pixels are clearly visible.
+Hard-edged pixels with crisp boundaries, no blur, no soft focus, no photographic depth of
+field. Limited colour palette with ordered dithering for the sky gradients and for shading.
+Detailed and richly shaded within the pixel constraints — a high-quality modern pixel-art
+RPG background, not a simple flat 8-bit console screen.
 
 EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
 numbers, no logos, no watermark, no user interface elements, no frames and no borders.
+Not smooth vector art, not a photograph, not a 3D render, not a soft digital painting —
+the square pixel grid must be visible throughout.
 ```
 
 ### Variação 1C — Ponte com estandartes, picos nevados
@@ -162,8 +217,8 @@ numbers, no logos, no watermark, no user interface elements, no frames and no bo
 ```
 Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
 
-PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
-left and a boss on the right — will be composited on top of this image later, standing on
+PURPOSE: a background plate for a game UI panel. Two pixel-art character sprites — a hero on
+the left and a boss on the right — will be composited on top of this image later, standing on
 the ground. The image itself must contain no characters of any kind.
 
 SCENE: a broad medieval castle bridge at eye level. Tall banner poles with faded cloth
@@ -182,15 +237,22 @@ COMPOSITION (strict):
   58 percent of the width. The left and right thirds will be covered by character sprites,
   so keep them simple.
 
-LIGHT AND COLOR: dusty warm sunlight glancing from the upper left against cool blue
-shadow, heavy atmospheric perspective. Restrained muted colour, low contrast in the centre
-of the frame. The four corners and the entire bottom edge must be clearly darker in a soft
-vignette, because white text will be overlaid there.
+LIGHT AND COLOR: dusty warm sunlight glancing from the upper left against cool blue shadow,
+strong atmospheric perspective with the far peaks lightened by dithered haze. Restrained
+muted colour, low contrast in the centre of the frame. The four corners and the entire
+bottom edge must be clearly darker, because white text will be overlaid there.
 
-STYLE: stylized digital painting, painterly fantasy game background art, cohesive and calm.
+STYLE: 16-bit era pixel art, in the style of a Super Nintendo JRPG background. Drawn as if
+at roughly 256 by 170 pixels and then scaled up, so the square pixels are clearly visible.
+Hard-edged pixels with crisp boundaries, no blur, no soft focus, no photographic depth of
+field. Limited colour palette with ordered dithering for the sky gradients and for shading.
+Detailed and richly shaded within the pixel constraints — a high-quality modern pixel-art
+RPG background, not a simple flat 8-bit console screen.
 
 EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
 numbers, no logos, no watermark, no user interface elements, no frames and no borders.
+Not smooth vector art, not a photograph, not a 3D render, not a soft digital painting —
+the square pixel grid must be visible throughout.
 ```
 
 ---
@@ -207,8 +269,8 @@ numbers, no logos, no watermark, no user interface elements, no frames and no bo
 ```
 Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
 
-PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
-left and a boss on the right — will be composited on top of this image later, standing on
+PURPOSE: a background plate for a game UI panel. Two pixel-art character sprites — a hero on
+the left and a boss on the right — will be composited on top of this image later, standing on
 the ground. The image itself must contain no characters of any kind.
 
 SCENE: the interior of a grand medieval throne hall, seen straight on at eye level.
@@ -217,9 +279,8 @@ distant. Tall stone columns line both side walls and recede into shadow, with na
 stained glass windows casting soft coloured light.
 
 COMPOSITION (strict):
-- Eye-level camera, straight-on symmetrical view, no tilt, not aerial and not low angle.
-- The line where the floor meets the far wall sits at 60 percent of the image height,
-  measured from the top.
+- Eye-level camera, straight-on view, no tilt, not aerial and not low angle.
+- Horizon line at 60 percent of the image height, measured from the top.
 - The entire lower third of the image must be flat, level, empty polished stone floor: a
   clean unobstructed ground plane with no furniture, no steps, no rugs and no foreground
   objects whatsoever.
@@ -228,16 +289,22 @@ COMPOSITION (strict):
 - The throne must sit centred, between 35 and 58 percent of the width. The left and right
   thirds will be covered by character sprites, so keep them simple and dark.
 
-LIGHT AND COLOR: warm candlelight pooling at the centre, deep shadows toward the edges.
-Dark muted palette of deep stone grey and violet, low contrast in the centre of the frame.
-The four corners and the entire bottom edge must be clearly darker in a strong soft
-vignette, because white text will be overlaid there.
+LIGHT AND COLOR: warm candlelight pooling at the centre, deep shadows toward the edges, the
+light falloff rendered with dithering rather than smooth gradients. Dark muted palette of
+deep stone grey and violet, low contrast in the centre of the frame. The four corners and
+the entire bottom edge must be clearly darker, because white text will be overlaid there.
 
-STYLE: stylized digital painting, painterly fantasy game background art, solemn and
-uncluttered.
+STYLE: 16-bit era pixel art, in the style of a Super Nintendo JRPG background. Drawn as if
+at roughly 256 by 170 pixels and then scaled up, so the square pixels are clearly visible.
+Hard-edged pixels with crisp boundaries, no blur, no soft focus, no photographic depth of
+field. Limited colour palette with ordered dithering for the sky gradients and for shading.
+Detailed and richly shaded within the pixel constraints — a high-quality modern pixel-art
+RPG background, not a simple flat 8-bit console screen.
 
 EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
 numbers, no logos, no watermark, no user interface elements, no frames and no borders.
+Not smooth vector art, not a photograph, not a 3D render, not a soft digital painting —
+the square pixel grid must be visible throughout.
 ```
 
 ### Variação 2B — Tapete vermelho e braseiros
@@ -245,8 +312,8 @@ numbers, no logos, no watermark, no user interface elements, no frames and no bo
 ```
 Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
 
-PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
-left and a boss on the right — will be composited on top of this image later, standing on
+PURPOSE: a background plate for a game UI panel. Two pixel-art character sprites — a hero on
+the left and a boss on the right — will be composited on top of this image later, standing on
 the ground. The image itself must contain no characters of any kind.
 
 SCENE: the interior of a medieval royal throne room at eye level, symmetrical composition.
@@ -255,9 +322,8 @@ throne on a raised platform at the far end, centred and distant. Gothic pointed 
 both side walls, with low iron braziers glowing warmly beside them.
 
 COMPOSITION (strict):
-- Eye-level camera, straight-on symmetrical view, no tilt, not aerial and not low angle.
-- The line where the floor meets the far wall sits at 60 percent of the image height,
-  measured from the top.
+- Eye-level camera, straight-on view, no tilt, not aerial and not low angle.
+- Horizon line at 60 percent of the image height, measured from the top.
 - The entire lower third of the image must be flat, level, empty stone floor with the flat
   carpet lying on it: a clean unobstructed ground plane with nothing standing on it, no
   steps and no foreground objects whatsoever.
@@ -267,14 +333,21 @@ COMPOSITION (strict):
   thirds will be covered by character sprites, so keep them simple and dark.
 
 LIGHT AND COLOR: warm ember light from the braziers, smoky atmosphere, deep purple and
-charcoal shadows. Dark, moody and desaturated, low contrast in the centre of the frame.
-The four corners and the entire bottom edge must fall into darkness in a strong soft
-vignette, because white text will be overlaid there.
+charcoal shadows, glow falloff built from dithered bands. Dark, moody and desaturated, low
+contrast in the centre of the frame. The four corners and the entire bottom edge must fall
+into darkness, because white text will be overlaid there.
 
-STYLE: stylized digital painting, painterly fantasy game background art, restrained detail.
+STYLE: 16-bit era pixel art, in the style of a Super Nintendo JRPG background. Drawn as if
+at roughly 256 by 170 pixels and then scaled up, so the square pixels are clearly visible.
+Hard-edged pixels with crisp boundaries, no blur, no soft focus, no photographic depth of
+field. Limited colour palette with ordered dithering for the sky gradients and for shading.
+Detailed and richly shaded within the pixel constraints — a high-quality modern pixel-art
+RPG background, not a simple flat 8-bit console screen.
 
 EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
 numbers, no logos, no watermark, no user interface elements, no frames and no borders.
+Not smooth vector art, not a photograph, not a 3D render, not a soft digital painting —
+the square pixel grid must be visible throughout.
 ```
 
 ### Variação 2C — Salão íntimo com tochas
@@ -282,8 +355,8 @@ numbers, no logos, no watermark, no user interface elements, no frames and no bo
 ```
 Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
 
-PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
-left and a boss on the right — will be composited on top of this image later, standing on
+PURPOSE: a background plate for a game UI panel. Two pixel-art character sprites — a hero on
+the left and a boss on the right — will be composited on top of this image later, standing on
 the ground. The image itself must contain no characters of any kind.
 
 SCENE: a modest medieval throne chamber seen at eye level. Centred in the background, an
@@ -292,9 +365,8 @@ faded tapestry. Wall-mounted torches on both side walls cast warm pools of light
 the corners in deep shadow.
 
 COMPOSITION (strict):
-- Eye-level camera, straight-on symmetrical view, no tilt, not aerial and not low angle.
-- The line where the floor meets the far wall sits at 60 percent of the image height,
-  measured from the top.
+- Eye-level camera, straight-on view, no tilt, not aerial and not low angle.
+- Horizon line at 60 percent of the image height, measured from the top.
 - The entire lower third of the image must be flat, level, empty polished dark marble floor
   with faint reflections: a clean unobstructed ground plane with no furniture, no steps and
   no foreground objects whatsoever.
@@ -303,15 +375,22 @@ COMPOSITION (strict):
 - The throne must sit centred, between 35 and 58 percent of the width. The left and right
   thirds will be covered by character sprites, so keep them simple and dark.
 
-LIGHT AND COLOR: warm amber torchlight against cold blue-grey stone, gentle haze. Intimate,
-dark and desaturated, low contrast in the centre of the frame. The four corners and the
-entire bottom edge must be clearly darker in a soft vignette, because white text will be
-overlaid there.
+LIGHT AND COLOR: warm amber torchlight against cold blue-grey stone, gentle haze, light pools
+shaded with dithering. Intimate, dark and desaturated, low contrast in the centre of the
+frame. The four corners and the entire bottom edge must be clearly darker, because white
+text will be overlaid there.
 
-STYLE: stylized digital painting, painterly fantasy game background art, calm and simple.
+STYLE: 16-bit era pixel art, in the style of a Super Nintendo JRPG background. Drawn as if
+at roughly 256 by 170 pixels and then scaled up, so the square pixels are clearly visible.
+Hard-edged pixels with crisp boundaries, no blur, no soft focus, no photographic depth of
+field. Limited colour palette with ordered dithering for the sky gradients and for shading.
+Detailed and richly shaded within the pixel constraints — a high-quality modern pixel-art
+RPG background, not a simple flat 8-bit console screen.
 
 EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
 numbers, no logos, no watermark, no user interface elements, no frames and no borders.
+Not smooth vector art, not a photograph, not a 3D render, not a soft digital painting —
+the square pixel grid must be visible throughout.
 ```
 
 ---
@@ -329,8 +408,8 @@ numbers, no logos, no watermark, no user interface elements, no frames and no bo
 ```
 Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
 
-PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
-left and a boss on the right — will be composited on top of this image later, standing on
+PURPOSE: a background plate for a game UI panel. Two pixel-art character sprites — a hero on
+the left and a boss on the right — will be composited on top of this image later, standing on
 the ground. The image itself must contain no characters of any kind.
 
 SCENE: an open snow field at eye level under an overcast late afternoon sky. A dark
@@ -348,16 +427,23 @@ COMPOSITION (strict):
   58 percent of the width. The left and right thirds will be covered by character sprites,
   so keep them simple.
 
-LIGHT AND COLOR: soft diffused overcast light with no harsh highlights, gentle falling
-mist. Cold desaturated palette of blue-grey, slate and muted white, low contrast in the
-centre of the frame. Important: the snow must be deliberately dimmed and shadowed toward
-the bottom edge and the four corners, in a strong soft vignette — it must not be bright
-white there, because white text will be overlaid on those areas.
+LIGHT AND COLOR: soft diffused overcast light with no harsh highlights, gentle falling mist,
+sky and haze built from dithered bands. Cold desaturated palette of blue-grey, slate and
+muted white, low contrast in the centre of the frame. Important: the snow must be
+deliberately dimmed and shadowed toward the bottom edge and the four corners — it must not
+be bright white there, because white text will be overlaid on those areas.
 
-STYLE: stylized digital painting, painterly fantasy game background art, quiet and empty.
+STYLE: 16-bit era pixel art, in the style of a Super Nintendo JRPG background. Drawn as if
+at roughly 256 by 170 pixels and then scaled up, so the square pixels are clearly visible.
+Hard-edged pixels with crisp boundaries, no blur, no soft focus, no photographic depth of
+field. Limited colour palette with ordered dithering for the sky gradients and for shading.
+Detailed and richly shaded within the pixel constraints — a high-quality modern pixel-art
+RPG background, not a simple flat 8-bit console screen.
 
 EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
 numbers, no logos, no watermark, no user interface elements, no frames and no borders.
+Not smooth vector art, not a photograph, not a 3D render, not a soft digital painting —
+the square pixel grid must be visible throughout.
 ```
 
 ### Variação 3B — Vale nevado com nevasca leve
@@ -365,8 +451,8 @@ numbers, no logos, no watermark, no user interface elements, no frames and no bo
 ```
 Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
 
-PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
-left and a boss on the right — will be composited on top of this image later, standing on
+PURPOSE: a background plate for a game UI panel. Two pixel-art character sprites — a hero on
+the left and a boss on the right — will be composited on top of this image later, standing on
 the ground. The image itself must contain no characters of any kind.
 
 SCENE: a snowy mountain valley seen at eye level during light snowfall. Weathered dark rock
@@ -385,16 +471,22 @@ COMPOSITION (strict):
   58 percent of the width. The left and right thirds will be covered by character sprites,
   so keep them simple.
 
-LIGHT AND COLOR: dim silver light, deep blue shadows, heavy atmospheric depth. Cold muted
-palette, low overall contrast. Important: the snow must be clearly darker at the bottom
-edge and in the four corners, in a strong soft vignette — it must not be bright white
-there, because white text will be overlaid on those areas.
+LIGHT AND COLOR: dim silver light, deep blue shadows, layered atmospheric depth with the far
+ridges lightened by dithered haze. Cold muted palette, low overall contrast. Important: the
+snow must be clearly darker at the bottom edge and in the four corners — it must not be
+bright white there, because white text will be overlaid on those areas.
 
-STYLE: stylized digital painting, painterly fantasy game background art, sparse and
-atmospheric.
+STYLE: 16-bit era pixel art, in the style of a Super Nintendo JRPG background. Drawn as if
+at roughly 256 by 170 pixels and then scaled up, so the square pixels are clearly visible.
+Hard-edged pixels with crisp boundaries, no blur, no soft focus, no photographic depth of
+field. Limited colour palette with ordered dithering for the sky gradients and for shading.
+Detailed and richly shaded within the pixel constraints — a high-quality modern pixel-art
+RPG background, not a simple flat 8-bit console screen.
 
 EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
 numbers, no logos, no watermark, no user interface elements, no frames and no borders.
+Not smooth vector art, not a photograph, not a 3D render, not a soft digital painting —
+the square pixel grid must be visible throughout.
 ```
 
 ### Variação 3C — Planície ao crepúsculo
@@ -402,8 +494,8 @@ numbers, no logos, no watermark, no user interface elements, no frames and no bo
 ```
 Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
 
-PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
-left and a boss on the right — will be composited on top of this image later, standing on
+PURPOSE: a background plate for a game UI panel. Two pixel-art character sprites — a hero on
+the left and a boss on the right — will be composited on top of this image later, standing on
 the ground. The image itself must contain no characters of any kind.
 
 SCENE: a wide snow plain at dusk, seen at eye level. A few bare dark birch trunks stand
@@ -422,15 +514,22 @@ COMPOSITION (strict):
   58 percent of the width. The left and right thirds will be covered by character sprites,
   so keep them simple.
 
-LIGHT AND COLOR: very desaturated cold palette of dim blue and grey, with a soft glow only
-near the horizon. Important: render the snow dark and shadowed rather than bright white,
-and let the four corners and the entire bottom edge fall into deep shadow in a strong soft
-vignette, because white text will be overlaid on those areas.
+LIGHT AND COLOR: very desaturated cold palette of dim blue and grey, with a soft glow only near
+the horizon built from dithered bands. Important: render the snow dark and shadowed rather
+than bright white, and let the four corners and the entire bottom edge fall into deep
+shadow, because white text will be overlaid on those areas.
 
-STYLE: stylized digital painting, painterly fantasy game background art, minimal and still.
+STYLE: 16-bit era pixel art, in the style of a Super Nintendo JRPG background. Drawn as if
+at roughly 256 by 170 pixels and then scaled up, so the square pixels are clearly visible.
+Hard-edged pixels with crisp boundaries, no blur, no soft focus, no photographic depth of
+field. Limited colour palette with ordered dithering for the sky gradients and for shading.
+Detailed and richly shaded within the pixel constraints — a high-quality modern pixel-art
+RPG background, not a simple flat 8-bit console screen.
 
 EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
 numbers, no logos, no watermark, no user interface elements, no frames and no borders.
+Not smooth vector art, not a photograph, not a 3D render, not a soft digital painting —
+the square pixel grid must be visible throughout.
 ```
 
 ---
@@ -446,11 +545,16 @@ eliminatórias:
       personagens parecem colados numa parede; muito baixo e parecem flutuando.
 - [ ] **Os cantos de baixo estão escuros?** É onde ficam o `♥ 98/100` e o `⚔ 3/5`
       em texto branco.
+- [ ] **É pixel art de verdade?** A grade de pixels quadrados tem que ser
+      visível. Se saiu ilustração lisa ou com desfoque fotográfico, descarte.
 - [ ] Não há nenhuma figura, silhueta humana ou criatura na cena.
 - [ ] Não há texto, marca d'água nem moldura.
 - [ ] O centro (35%–58% da largura) tem o elemento mais interessante da cena —
       é a parte que nunca fica coberta.
-- [ ] As três escolhidas parecem do **mesmo jogo** quando vistas lado a lado.
+- [ ] As três escolhidas parecem do **mesmo jogo** quando vistas lado a lado —
+      e, principalmente, do mesmo jogo que os sprites do herói e do boss.
+- [ ] A grade de pixel do cenário é parecida entre as três (uma mais grossa que
+      as outras quebra a unidade).
 - [ ] Nenhuma área clara demais atrás de onde o boss ou o herói ficam.
 
 **Teste final, o que mais vale:** abra a imagem, reduza para 392×208 e olhe. É
@@ -468,10 +572,14 @@ public/arenas/knight-arena.webp     → Pessoal
 public/arenas/orc-arena.webp        → Saúde
 ```
 
-Antes de commitar, **converta para WebP e redimensione para 1536 px de largura**
-(ou 1024, que já é 2,6× o tamanho de exibição no desktop). Os PNGs dos bosses
-têm 2,1 MB cada — não repita isso com os cenários; três fundos pesados na mesma
-página custam caro no mobile.
+Antes de commitar, **converta para WebP**. Os PNGs dos bosses têm 2,1 MB cada —
+não repita isso com os cenários; três fundos pesados na mesma página custam caro
+no mobile.
+
+Ao redimensionar pixel art, **use divisões inteiras e vizinho-mais-próximo**
+(`nearest neighbor`), nunca interpolação suave: 1536 → 768 (÷2) preserva a grade;
+1536 → 1000 a destrói, e o resultado fica embaçado justamente onde o charme está.
+768 px de largura já é quase o dobro dos 392 px de exibição no desktop.
 
 Quando você tiver as três, é só me mandar: o ponto de plugue é o
 `CharacterBackdrop` dentro do `BossBattleCard`, e a troca não afeta o perfil nem
