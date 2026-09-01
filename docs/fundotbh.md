@@ -3,6 +3,10 @@
 Guia para gerar os 3 fundos das arenas de boss (widget TBH, aba **Missões**).
 São 9 prompts: 3 cenários × 3 variações, para você comparar e escolher.
 
+**Cada prompt é autocontido** — traz tamanho, proporção, enquadramento, luz,
+estilo e exclusões. É colar um bloco inteiro no GPT Image e enviar, sem
+precisar acrescentar nada.
+
 > **Nada disto está implementado.** Hoje as arenas usam os cenários **vetoriais**
 > (`src/components/CharacterBackdrop.tsx`). Estas imagens são para substituí-los
 > *só nas arenas TBH* — os vetoriais continuam servindo a moldura do perfil e as
@@ -21,7 +25,8 @@ palco inteiro (`object-cover`). As medidas reais, tiradas do código:
 | Mobile (390 px de tela) | 350 px | 224 px | **1,56 : 1** |
 
 A proporção **muda** entre mobile e desktop, então parte da imagem sempre será
-cortada. É a restrição mais importante deste documento: **componha para o corte**.
+cortada. É a restrição mais importante deste documento, e por isso todo prompt
+abaixo já diz ao modelo onde não pode haver nada essencial.
 
 ### Ocupação do palco (o que fica por cima da imagem)
 
@@ -47,227 +52,390 @@ cortada. É a restrição mais importante deste documento: **componha para o cor
 
 ---
 
-## 2. Especificação técnica
+## 2. Por que os números dos prompts são esses
 
-### Proporção e tamanho
+Os prompts pedem **1536 × 1024 (3:2)**, **horizonte a 60% da altura** e **terço
+inferior vazio**. Não é gosto, é geometria:
 
-| Opção | Tamanho | Proporção | Margem de segurança necessária |
-|---|---|---|---|
-| **Recomendada** (gpt-image-1) | **1536 × 1024** | 3:2 (1,50) | **12% em cima e embaixo** |
-| Alternativa (DALL·E 3) | 1792 × 1024 | 7:4 (1,75) | 6% em cima/embaixo + 7% nas laterais |
+- **1536 × 1024** é o formato paisagem nativo do gpt-image-1.
+- Com ele, o desktop corta **10,2% do topo e 10,2% da base** (o mobile corta só
+  2%). Daí a instrução de manter o essencial longe dessas faixas.
+- **Horizonte a 60%**: com 10% cortado em cima, isso vira ~62% da área visível —
+  exatamente onde o chão precisa começar para os personagens (ancorados na base
+  do card) parecerem pisando nele, e não flutuando.
+- **Terço inferior plano e vazio**: é onde ficam as sombras elípticas sob os pés.
+  Qualquer pedra ou degrau ali colide com elas e denuncia a montagem.
 
-O 1536×1024 é o formato paisagem nativo do gpt-image-1. Com ele, o desktop
-corta **10,2% do topo e 10,2% da base**; o mobile corta só 2%. Por isso a
-margem de 12%: nada essencial pode viver nessas faixas.
+### Se você usar DALL·E 3 em vez do gpt-image-1
 
-O 1792×1024 fica mais perto da proporção do desktop e corta menos na vertical,
-mas passa a cortar as laterais no mobile. Se o gerador oferecer, é ligeiramente
-melhor — só troque a margem de segurança conforme a tabela.
+Troque a primeira linha do prompt para `1792 × 1024 pixels (7:4 aspect ratio)` e
+a linha do corte para `about 4% at the top and 4% at the bottom, and about 5% on
+each side`. O resto vale igual.
 
-### Linha do horizonte
+### Idioma
 
-**O horizonte deve ficar a ~60% da altura, medido do topo da imagem.**
-
-Esse número não é estético, é geométrico: com 10% cortado em cima, os 60%
-viram ~62% da área visível — que é exatamente onde o chão precisa começar para
-os personagens (ancorados na base) parecerem pisando nele, e não flutuando.
-
-**O terço inferior tem que ser chão plano e vazio.** Sem pedras grandes, sem
-degraus, sem objetos no primeiro plano: qualquer coisa ali vai colidir com as
-sombras elípticas sob os pés dos personagens e denunciar a montagem.
-
-### Idioma dos prompts
-
-Os prompts abaixo estão **em inglês** de propósito — os modelos de imagem
-respondem de forma mais consistente e previsível em inglês, especialmente em
-termos de composição ("lower third", "horizon line", "eye level"). Cole como
-está.
+Os prompts estão **em inglês** de propósito — os modelos de imagem são bem mais
+consistentes com termos de composição (*"lower third"*, *"horizon line"*,
+*"eye level"*) em inglês. Cole como está.
 
 ---
 
-## 3. Regras que valem para os 9 prompts
-
-Já estão embutidas em cada prompt (são autocontidos, cole um por vez), mas vale
-saber o porquê:
-
-| Regra | Motivo |
-|---|---|
-| **Sem personagens, criaturas ou pessoas** | O herói e o boss são PNGs separados por cima. Qualquer figura na arte vira um terceiro personagem fantasma. |
-| **Sem texto, logo, moldura ou interface** | Vira ruído sob o nome do boss e os indicadores. |
-| **Chão plano e vazio no terço inferior** | Onde os personagens pisam. |
-| **Bordas e cantos inferiores mais escuros** | Legibilidade do texto branco, e ajuda os sprites a "descolarem" do fundo. |
-| **Cores dessaturadas, sem alto contraste no centro** | Os sprites precisam ganhar a atenção. Fundo estridente compete com eles. |
-| **Ponto de vista na altura dos olhos** | Câmera baixa ou aérea quebra a ilusão de que os personagens estão no chão. |
-| **Mesmo estilo nos três** | As 3 arenas aparecem lado a lado. Estilos diferentes destroem a unidade. |
-
-O estilo pedido é o mesmo nos nove: **pintura digital estilizada de fundo de
-jogo** — o que costuma casar bem com arte de personagem em PNG.
-
----
-
-## 4. Cenário 1 — Dragão (área **Profissional**)
+## 3. Cenário 1 — Dragão (área **Profissional**)
 *Ponte medieval de castelo, montanhas ao fundo, período da tarde.*
 
 ### Variação 1A — Ponte larga com portaria do castelo
 
 ```
-Stylized digital painting, fantasy game background art, no characters and no creatures.
-A wide medieval stone bridge seen at eye level, its flat empty stone roadway filling the
-entire lower third of the image as a clean flat ground plane with no obstacles, no rubble
-and no foreground objects. Low crenellated parapets run along both sides of the bridge.
-On the left, a large castle gatehouse with a rounded tower recedes into the distance.
-Layered blue-grey mountains fill the background under a late afternoon sky with warm
-golden light raking from the left and soft clouds. Horizon line placed at 60 percent of
-the image height. Muted desaturated palette, cool shadows against warm afternoon light,
-gentle atmospheric haze on the mountains. Corners and lower edges noticeably darker,
-soft natural vignette. Painterly brushwork, cohesive and calm, low contrast in the middle
-of the frame. No text, no logos, no watermark, no user interface, no borders, no people.
+Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
+
+PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
+left and a boss on the right — will be composited on top of this image later, standing on
+the ground. The image itself must contain no characters of any kind.
+
+SCENE: a wide medieval stone bridge, seen straight on at eye level. Low crenellated stone
+parapets run along both sides of the bridge. On the left, a large castle gatehouse with a
+rounded tower recedes into the distance. Layered blue-grey mountains fill the background
+under a late afternoon sky with soft clouds.
+
+COMPOSITION (strict):
+- Eye-level camera, straight-on view, no tilt, not aerial and not low angle.
+- Horizon line at 60 percent of the image height, measured from the top.
+- The entire lower third of the image must be flat, level, empty stone roadway: a clean
+  unobstructed ground plane with no rocks, no rubble, no steps, no plants and no
+  foreground objects whatsoever.
+- The image will be cropped in use by about 10 percent at the top and 10 percent at the
+  bottom, so keep every important element well away from those edges.
+- Place the most interesting part of the scene in the middle of the frame, between 35 and
+  58 percent of the width. The left and right thirds will be covered by character sprites,
+  so keep them simple.
+
+LIGHT AND COLOR: warm golden afternoon sunlight raking in from the left, cool blue shadows,
+gentle atmospheric haze on the mountains. Muted and desaturated overall, low contrast in
+the centre of the frame. The four corners and the entire bottom edge must be clearly
+darker in a soft natural vignette, because white text will be overlaid there.
+
+STYLE: stylized digital painting, painterly fantasy game background art, cohesive and calm.
+
+EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
+numbers, no logos, no watermark, no user interface elements, no frames and no borders.
 ```
 
 ### Variação 1B — Ponte sobre desfiladeiro, céu de fim de tarde
 
 ```
-Stylized digital painting, fantasy game background art, no characters and no creatures.
-A medieval stone bridge crossing a deep mountain gorge, viewed at eye level. The flat
-empty bridge deck occupies the entire lower third as a clean unobstructed ground plane
-with no rubble and no foreground objects. Two slender stone towers with pointed roofs
-flank the far end of the bridge, small in the distance. Behind them, receding ridges of
-blue and violet mountains fade into haze under a warm amber and rose late afternoon sky
-with long horizontal clouds. Horizon line at 60 percent of the image height. Desaturated
-cinematic palette, soft directional sunlight from the right, deep cool shadows. The
-corners and the bottom edges fade noticeably darker in a soft vignette. Painterly game
-art, calm and uncluttered in the centre of the frame. No text, no logos, no watermark,
-no user interface, no people.
+Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
+
+PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
+left and a boss on the right — will be composited on top of this image later, standing on
+the ground. The image itself must contain no characters of any kind.
+
+SCENE: a medieval stone bridge crossing a deep mountain gorge, viewed at eye level. Two
+slender stone towers with pointed roofs flank the far end of the bridge, small in the
+distance. Behind them, receding ridges of blue and violet mountains fade into haze under a
+warm amber and rose late afternoon sky with long horizontal clouds.
+
+COMPOSITION (strict):
+- Eye-level camera, straight-on view, no tilt, not aerial and not low angle.
+- Horizon line at 60 percent of the image height, measured from the top.
+- The entire lower third of the image must be the flat, level, empty bridge deck: a clean
+  unobstructed ground plane with no rocks, no rubble, no steps and no foreground objects
+  whatsoever.
+- The image will be cropped in use by about 10 percent at the top and 10 percent at the
+  bottom, so keep every important element well away from those edges.
+- Place the most interesting part of the scene in the middle of the frame, between 35 and
+  58 percent of the width. The left and right thirds will be covered by character sprites,
+  so keep them simple.
+
+LIGHT AND COLOR: soft directional late afternoon sunlight from the right, deep cool
+shadows, strong atmospheric perspective on the distant ridges. Desaturated cinematic
+palette, low contrast in the centre of the frame. The four corners and the entire bottom
+edge must be clearly darker in a soft vignette, because white text will be overlaid there.
+
+STYLE: stylized digital painting, painterly fantasy game background art, cohesive and calm.
+
+EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
+numbers, no logos, no watermark, no user interface elements, no frames and no borders.
 ```
 
 ### Variação 1C — Ponte com estandartes, picos nevados
 
 ```
-Stylized digital painting, fantasy game background art, no characters and no creatures.
-A broad medieval castle bridge at eye level, its flat empty paved roadway forming a clean
-uncluttered ground plane across the entire lower third, free of debris and foreground
-objects. Tall banner poles with faded cloth pennants line the far edges of the bridge,
-kept low and to the sides. In the background, a castle silhouette on the left and distant
-snow-capped peaks under a hazy late afternoon sky, warm sunlight glancing from the upper
-left. Horizon line at 60 percent of the image height. Restrained muted colour, dusty
-warm light against cool blue shadow, heavy atmospheric perspective. Darker corners and
-darker lower edges, soft vignette. Painterly stylised brushwork, quiet composition with
-open space in the middle. No text, no logos, no watermark, no user interface, no people.
+Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
+
+PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
+left and a boss on the right — will be composited on top of this image later, standing on
+the ground. The image itself must contain no characters of any kind.
+
+SCENE: a broad medieval castle bridge at eye level. Tall banner poles with faded cloth
+pennants line the far edges of the bridge, kept low and to the sides. In the background, a
+castle silhouette on the left and distant snow-capped peaks under a hazy late afternoon sky.
+
+COMPOSITION (strict):
+- Eye-level camera, straight-on view, no tilt, not aerial and not low angle.
+- Horizon line at 60 percent of the image height, measured from the top.
+- The entire lower third of the image must be flat, level, empty paved roadway: a clean
+  unobstructed ground plane with no rocks, no debris, no steps and no foreground objects
+  whatsoever.
+- The image will be cropped in use by about 10 percent at the top and 10 percent at the
+  bottom, so keep every important element well away from those edges.
+- Place the most interesting part of the scene in the middle of the frame, between 35 and
+  58 percent of the width. The left and right thirds will be covered by character sprites,
+  so keep them simple.
+
+LIGHT AND COLOR: dusty warm sunlight glancing from the upper left against cool blue
+shadow, heavy atmospheric perspective. Restrained muted colour, low contrast in the centre
+of the frame. The four corners and the entire bottom edge must be clearly darker in a soft
+vignette, because white text will be overlaid there.
+
+STYLE: stylized digital painting, painterly fantasy game background art, cohesive and calm.
+
+EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
+numbers, no logos, no watermark, no user interface elements, no frames and no borders.
 ```
 
 ---
 
-## 5. Cenário 2 — Cavaleiro (área **Pessoal**)
+## 4. Cenário 2 — Cavaleiro (área **Pessoal**)
 *Sala com o trono do rei.*
 
-> **Atenção nos três**: o trono precisa ficar **no centro e ao fundo**, na faixa
-> livre entre o herói e o boss. Se ele for para os lados, some atrás de um sprite.
+> **Atenção nos três**: o trono precisa ficar **centralizado e ao fundo**, na
+> faixa livre entre o herói e o boss. Se ele for para os lados, some atrás de um
+> sprite. Todos os prompts abaixo já pedem isso explicitamente.
 
 ### Variação 2A — Salão amplo com vitrais
 
 ```
-Stylized digital painting, fantasy game background art, no characters and no creatures.
-The interior of a grand medieval throne hall seen straight on at eye level. A polished
-flat stone floor fills the entire lower third as a clean empty ground plane with no
-furniture, no steps and no objects in the foreground. Centred in the background stands an
-empty ornate wooden throne on a low dais, small and distant. Tall stone columns line both
-sides and recede into shadow, with narrow stained glass windows casting soft coloured
-light. Horizon line, where the floor meets the far wall, at 60 percent of the image
-height. Dark muted palette of deep stone grey and violet, warm candlelight pooling at the
-centre, deep shadows toward the edges. Corners and lower edges markedly darker, strong
-soft vignette. Painterly game art, solemn and uncluttered. No text, no logos, no
-watermark, no user interface, no people.
+Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
+
+PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
+left and a boss on the right — will be composited on top of this image later, standing on
+the ground. The image itself must contain no characters of any kind.
+
+SCENE: the interior of a grand medieval throne hall, seen straight on at eye level.
+Centred in the background stands an empty ornate wooden throne on a low dais, small and
+distant. Tall stone columns line both side walls and recede into shadow, with narrow
+stained glass windows casting soft coloured light.
+
+COMPOSITION (strict):
+- Eye-level camera, straight-on symmetrical view, no tilt, not aerial and not low angle.
+- The line where the floor meets the far wall sits at 60 percent of the image height,
+  measured from the top.
+- The entire lower third of the image must be flat, level, empty polished stone floor: a
+  clean unobstructed ground plane with no furniture, no steps, no rugs and no foreground
+  objects whatsoever.
+- The image will be cropped in use by about 10 percent at the top and 10 percent at the
+  bottom, so keep every important element well away from those edges.
+- The throne must sit centred, between 35 and 58 percent of the width. The left and right
+  thirds will be covered by character sprites, so keep them simple and dark.
+
+LIGHT AND COLOR: warm candlelight pooling at the centre, deep shadows toward the edges.
+Dark muted palette of deep stone grey and violet, low contrast in the centre of the frame.
+The four corners and the entire bottom edge must be clearly darker in a strong soft
+vignette, because white text will be overlaid there.
+
+STYLE: stylized digital painting, painterly fantasy game background art, solemn and
+uncluttered.
+
+EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
+numbers, no logos, no watermark, no user interface elements, no frames and no borders.
 ```
 
 ### Variação 2B — Tapete vermelho e braseiros
 
 ```
-Stylized digital painting, fantasy game background art, no characters and no creatures.
-Interior of a medieval royal throne room at eye level, symmetrical composition. A flat
-stone floor with a faded red carpet runner leads straight back from the viewer and fills
-the entire lower third as a clean flat ground plane with nothing standing on it. At the
-far end, centred and distant, an empty carved stone throne sits on a raised platform.
-Gothic pointed arches line both side walls, with low iron braziers glowing warmly beside
-them. Horizon line at 60 percent of the image height. Dark, moody, desaturated palette,
-deep purple and charcoal shadows with warm ember light, smoky atmosphere. Corners and the
-bottom edges fall into darkness, soft vignette. Painterly stylised game background,
-restrained detail, open space at mid frame. No text, no logos, no watermark, no user
-interface, no people.
+Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
+
+PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
+left and a boss on the right — will be composited on top of this image later, standing on
+the ground. The image itself must contain no characters of any kind.
+
+SCENE: the interior of a medieval royal throne room at eye level, symmetrical composition.
+A faded red carpet runner leads straight back from the viewer toward an empty carved stone
+throne on a raised platform at the far end, centred and distant. Gothic pointed arches line
+both side walls, with low iron braziers glowing warmly beside them.
+
+COMPOSITION (strict):
+- Eye-level camera, straight-on symmetrical view, no tilt, not aerial and not low angle.
+- The line where the floor meets the far wall sits at 60 percent of the image height,
+  measured from the top.
+- The entire lower third of the image must be flat, level, empty stone floor with the flat
+  carpet lying on it: a clean unobstructed ground plane with nothing standing on it, no
+  steps and no foreground objects whatsoever.
+- The image will be cropped in use by about 10 percent at the top and 10 percent at the
+  bottom, so keep every important element well away from those edges.
+- The throne must sit centred, between 35 and 58 percent of the width. The left and right
+  thirds will be covered by character sprites, so keep them simple and dark.
+
+LIGHT AND COLOR: warm ember light from the braziers, smoky atmosphere, deep purple and
+charcoal shadows. Dark, moody and desaturated, low contrast in the centre of the frame.
+The four corners and the entire bottom edge must fall into darkness in a strong soft
+vignette, because white text will be overlaid there.
+
+STYLE: stylized digital painting, painterly fantasy game background art, restrained detail.
+
+EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
+numbers, no logos, no watermark, no user interface elements, no frames and no borders.
 ```
 
 ### Variação 2C — Salão íntimo com tochas
 
 ```
-Stylized digital painting, fantasy game background art, no characters and no creatures.
-A modest medieval throne chamber seen at eye level. Polished dark marble floor with faint
-reflections fills the entire lower third as a clean unobstructed ground plane, empty of
-objects. Centred in the background, an empty high-backed throne of dark wood and gold
-stands against a stone wall hung with a faded tapestry. Wall-mounted torches on both sides
-cast warm pools of light, leaving the corners in deep shadow. Horizon line at 60 percent
-of the image height. Intimate, dark and desaturated, warm amber highlights against cold
-blue-grey stone, gentle haze. Noticeably darker corners and lower edges, soft vignette.
-Painterly game art, calm and simple, minimal detail in the centre. No text, no logos, no
-watermark, no user interface, no people.
+Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
+
+PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
+left and a boss on the right — will be composited on top of this image later, standing on
+the ground. The image itself must contain no characters of any kind.
+
+SCENE: a modest medieval throne chamber seen at eye level. Centred in the background, an
+empty high-backed throne of dark wood and gold stands against a stone wall hung with a
+faded tapestry. Wall-mounted torches on both side walls cast warm pools of light, leaving
+the corners in deep shadow.
+
+COMPOSITION (strict):
+- Eye-level camera, straight-on symmetrical view, no tilt, not aerial and not low angle.
+- The line where the floor meets the far wall sits at 60 percent of the image height,
+  measured from the top.
+- The entire lower third of the image must be flat, level, empty polished dark marble floor
+  with faint reflections: a clean unobstructed ground plane with no furniture, no steps and
+  no foreground objects whatsoever.
+- The image will be cropped in use by about 10 percent at the top and 10 percent at the
+  bottom, so keep every important element well away from those edges.
+- The throne must sit centred, between 35 and 58 percent of the width. The left and right
+  thirds will be covered by character sprites, so keep them simple and dark.
+
+LIGHT AND COLOR: warm amber torchlight against cold blue-grey stone, gentle haze. Intimate,
+dark and desaturated, low contrast in the centre of the frame. The four corners and the
+entire bottom edge must be clearly darker in a soft vignette, because white text will be
+overlaid there.
+
+STYLE: stylized digital painting, painterly fantasy game background art, calm and simple.
+
+EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
+numbers, no logos, no watermark, no user interface elements, no frames and no borders.
 ```
 
 ---
 
-## 6. Cenário 3 — Orc (área **Saúde**)
+## 5. Cenário 3 — Orc (área **Saúde**)
 *Campo de neve.*
 
 > **Este é o mais arriscado**: neve é clara, e os indicadores em texto branco
-> ficam por cima. Todos os três prompts pedem explicitamente céu de fim de
-> tarde/crepúsculo e base escurecida — não peça "sunny snow field", ou o texto
-> desaparece.
+> ficam por cima dela. Os três prompts pedem explicitamente fim de tarde ou
+> crepúsculo e a neve escurecida na base. **Não troque por "sunny snow field"**,
+> ou o `⚔ 3/5` some.
 
 ### Variação 3A — Planície aberta com pinheiros
 
 ```
-Stylized digital painting, fantasy game background art, no characters and no creatures.
-An open snow field at eye level under an overcast late afternoon sky. Smooth flat untouched
-snow fills the entire lower third as a clean level ground plane, with no rocks, no drifts
-and no objects in the foreground. A dark treeline of snow-laden pine trees runs across the
-middle distance, and pale blue-grey mountains rise faintly behind it through the haze.
-Horizon line at 60 percent of the image height. Cold desaturated palette of blue-grey,
-slate and muted white, soft diffused light with no harsh highlights, gentle falling mist.
-The snow is deliberately dimmed and shadowed toward the bottom edge and the corners, strong
-soft vignette keeping the lower area dark. Painterly stylised brushwork, quiet and empty.
-No text, no logos, no watermark, no user interface, no people.
+Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
+
+PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
+left and a boss on the right — will be composited on top of this image later, standing on
+the ground. The image itself must contain no characters of any kind.
+
+SCENE: an open snow field at eye level under an overcast late afternoon sky. A dark
+treeline of snow-laden pine trees runs across the middle distance, and pale blue-grey
+mountains rise faintly behind it through the haze.
+
+COMPOSITION (strict):
+- Eye-level camera, straight-on view, no tilt, not aerial and not low angle.
+- Horizon line at 60 percent of the image height, measured from the top.
+- The entire lower third of the image must be smooth, flat, untouched snow: a clean level
+  ground plane with no rocks, no drifts, no footprints and no foreground objects whatsoever.
+- The image will be cropped in use by about 10 percent at the top and 10 percent at the
+  bottom, so keep every important element well away from those edges.
+- Place the most interesting part of the scene in the middle of the frame, between 35 and
+  58 percent of the width. The left and right thirds will be covered by character sprites,
+  so keep them simple.
+
+LIGHT AND COLOR: soft diffused overcast light with no harsh highlights, gentle falling
+mist. Cold desaturated palette of blue-grey, slate and muted white, low contrast in the
+centre of the frame. Important: the snow must be deliberately dimmed and shadowed toward
+the bottom edge and the four corners, in a strong soft vignette — it must not be bright
+white there, because white text will be overlaid on those areas.
+
+STYLE: stylized digital painting, painterly fantasy game background art, quiet and empty.
+
+EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
+numbers, no logos, no watermark, no user interface elements, no frames and no borders.
 ```
 
 ### Variação 3B — Vale nevado com nevasca leve
 
 ```
-Stylized digital painting, fantasy game background art, no characters and no creatures.
-A snowy mountain valley seen at eye level during light snowfall. Flat wind-smoothed snow
-covers the entire lower third as a clean empty ground plane with no boulders and no
-foreground obstacles. Weathered dark rock formations sit low along both sides in the middle
-distance, and a dense dark forest and fading ridgelines occupy the background, softened by
-snowfall and haze. Horizon line at 60 percent of the image height. Cold muted palette,
-deep blue shadows and dim silver light, heavy atmospheric depth, low overall contrast.
-The bottom of the frame and all corners are clearly darker, strong soft vignette. Painterly
-game background art, sparse and atmospheric. No text, no logos, no watermark, no user
-interface, no people.
+Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
+
+PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
+left and a boss on the right — will be composited on top of this image later, standing on
+the ground. The image itself must contain no characters of any kind.
+
+SCENE: a snowy mountain valley seen at eye level during light snowfall. Weathered dark rock
+formations sit low along both sides in the middle distance, and a dense dark forest with
+fading ridgelines occupies the background, softened by snowfall and haze.
+
+COMPOSITION (strict):
+- Eye-level camera, straight-on view, no tilt, not aerial and not low angle.
+- Horizon line at 60 percent of the image height, measured from the top.
+- The entire lower third of the image must be flat wind-smoothed snow: a clean level ground
+  plane with no boulders, no drifts and no foreground obstacles whatsoever. Keep the rock
+  formations in the middle distance, never in the foreground.
+- The image will be cropped in use by about 10 percent at the top and 10 percent at the
+  bottom, so keep every important element well away from those edges.
+- Place the most interesting part of the scene in the middle of the frame, between 35 and
+  58 percent of the width. The left and right thirds will be covered by character sprites,
+  so keep them simple.
+
+LIGHT AND COLOR: dim silver light, deep blue shadows, heavy atmospheric depth. Cold muted
+palette, low overall contrast. Important: the snow must be clearly darker at the bottom
+edge and in the four corners, in a strong soft vignette — it must not be bright white
+there, because white text will be overlaid on those areas.
+
+STYLE: stylized digital painting, painterly fantasy game background art, sparse and
+atmospheric.
+
+EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
+numbers, no logos, no watermark, no user interface elements, no frames and no borders.
 ```
 
 ### Variação 3C — Planície ao crepúsculo
 
 ```
-Stylized digital painting, fantasy game background art, no characters and no creatures.
-A wide snow plain at dusk, seen at eye level. Flat unbroken snow forms a clean empty ground
-plane across the entire lower third, with no drifts, rocks or foreground objects. A few
-bare dark birch trunks stand sparsely in the middle distance toward the edges, and low
-rolling snow hills fade into the background. The twilight sky above carries deep indigo and
-faint cold violet light near the horizon. Horizon line at 60 percent of the image height.
-Very desaturated cold palette, dim blue and grey, the snow rendered dark and shadowed rather
-than bright white, soft glow only near the horizon. Corners and the entire bottom edge fall
-into deep shadow, strong soft vignette. Painterly stylised game art, minimal and still.
-No text, no logos, no watermark, no user interface, no people.
+Generate a landscape image, 1536 x 1024 pixels, 3:2 aspect ratio.
+
+PURPOSE: a background plate for a game UI panel. Two character sprites — a hero on the
+left and a boss on the right — will be composited on top of this image later, standing on
+the ground. The image itself must contain no characters of any kind.
+
+SCENE: a wide snow plain at dusk, seen at eye level. A few bare dark birch trunks stand
+sparsely in the middle distance toward the edges, and low rolling snow hills fade into the
+background. The twilight sky above carries deep indigo with faint cold violet light near
+the horizon.
+
+COMPOSITION (strict):
+- Eye-level camera, straight-on view, no tilt, not aerial and not low angle.
+- Horizon line at 60 percent of the image height, measured from the top.
+- The entire lower third of the image must be flat unbroken snow: a clean level ground
+  plane with no drifts, no rocks, no tree trunks and no foreground objects whatsoever.
+- The image will be cropped in use by about 10 percent at the top and 10 percent at the
+  bottom, so keep every important element well away from those edges.
+- Place the most interesting part of the scene in the middle of the frame, between 35 and
+  58 percent of the width. The left and right thirds will be covered by character sprites,
+  so keep them simple.
+
+LIGHT AND COLOR: very desaturated cold palette of dim blue and grey, with a soft glow only
+near the horizon. Important: render the snow dark and shadowed rather than bright white,
+and let the four corners and the entire bottom edge fall into deep shadow in a strong soft
+vignette, because white text will be overlaid on those areas.
+
+STYLE: stylized digital painting, painterly fantasy game background art, minimal and still.
+
+EXCLUDE: no people, no characters, no creatures, no animals, no text, no letters, no
+numbers, no logos, no watermark, no user interface elements, no frames and no borders.
 ```
 
 ---
 
-## 7. Checklist para escolher entre as variações
+## 6. Checklist para escolher entre as variações
 
 Ao comparar as imagens geradas, verifique nesta ordem — as três primeiras são
 eliminatórias:
@@ -290,7 +458,7 @@ esse o tamanho real no desktop. Detalhe fino simplesmente some.
 
 ---
 
-## 8. Depois de escolher
+## 7. Depois de escolher
 
 Convenção de nomes, para casar com `src/data/bosses.ts`:
 
