@@ -52,6 +52,7 @@ export function RankingPodium({ players, xpOf, currentUserId }: RankingPodiumPro
                   characterClass={player.characterClass}
                   level={player.level}
                   size={rank === 1 ? "lg" : "md"}
+                  background={player.background}
                 />
               </div>
 

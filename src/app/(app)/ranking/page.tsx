@@ -11,6 +11,7 @@ import { useAppStats } from "@/hooks/AppStateProvider";
 import { useProfileIdentity } from "@/hooks/useProfileIdentity";
 import { useCharacterClass } from "@/hooks/useCharacterClass";
 import { isCharacterClass } from "@/data/characterClasses";
+import { toCharacterBackground } from "@/data/characterBackgrounds";
 import { getTopProfiles, getFriends } from "@/lib/db/social";
 import {
   xpForPeriod,
@@ -47,6 +48,7 @@ export default function RankingPage() {
       level: progress.level,
       streak,
       characterClass: isCharacterClass(characterClass) ? characterClass : "Guerreiro",
+      background: toCharacterBackground(profile?.character_background),
       country: profile?.country ?? "br",
       totalXp: stats.totalXp,
       yearXp: profile?.year_xp ?? stats.totalXp,

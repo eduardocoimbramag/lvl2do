@@ -10,6 +10,7 @@ import { FutureMissions } from "@/components/FutureMissions";
 import { PreconfiguredMissions } from "@/components/PreconfiguredMissions";
 import { Button } from "@/components/Button";
 import { categoryMeta } from "@/components/CategoryBadge";
+import { BossBattleRow } from "@/components/BossBattleRow";
 import { useAppMissions } from "@/hooks/AppStateProvider";
 import { CATEGORIES, toISODate, type Category, type Mission } from "@/data/types";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,9 @@ export default function MissionsPage() {
           />
         ))}
       </div>
+
+      {/* TBH: um boss por área, mesma malha das colunas (largura idêntica) */}
+      <BossBattleRow className="mt-5" />
 
       {/* aba expansiva de missões agendadas para outros dias */}
       <FutureMissions missions={allMissions} />

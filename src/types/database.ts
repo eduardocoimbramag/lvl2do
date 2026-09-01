@@ -184,3 +184,39 @@ export type StoriesFeedRow = {
   latest_at: string;
   stories: StoriesFeedStoryJson[];
 };
+
+/** Linha de `public.boss_battles` — HP persistente do boss por (usuário, categoria). */
+export type BossBattleRow = {
+  user_id: string;
+  category: MissionCategory;
+  /** 0..100; 0 = derrotado, aguardando coleta do tesouro. */
+  hp: number;
+  /** carimbo da derrota; limpo apenas por collect_boss_treasure. */
+  defeated_at: string | null;
+  updated_at: string;
+  created_at: string;
+};
+
+/** Linha de `public.boss_hits` — ledger de dano (fonte do cap de 5 hits/dia). */
+export type BossHitRow = {
+  id: string;
+  user_id: string;
+  mission_id: string;
+  category: MissionCategory;
+  /** dia LOCAL do usuário ("YYYY-MM-DD") a que o hit pertence. */
+  hit_on: string;
+  /** dano efetivamente aplicado (2, ou 1 se o boss tinha 1 de HP). */
+  damage: number;
+  created_at: string;
+};
+
+/** Item de `get_boss_battles()` / retorno de `collect_boss_treasure()`. */
+export type BossBattleState = {
+  category: MissionCategory;
+  hp: number;
+  max_hp: number;
+  defeated_at: string | null;
+  /** golpes gastos HOJE (dia real do servidor) neste boss (0..5). */
+  hits_today: number;
+  updated_at: string;
+};

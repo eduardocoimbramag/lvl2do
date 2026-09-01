@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { isCharacterClass } from "@/data/characterClasses";
+import { toCharacterBackground } from "@/data/characterBackgrounds";
 import { getCurrentSeason } from "@/data/referral";
 import type { Player } from "@/data/social";
 import type { PublicProfileRow } from "@/types/database";
@@ -14,6 +15,7 @@ export function publicProfileToPlayer(row: PublicProfileRow): Player {
     level: row.level,
     streak: row.current_streak,
     characterClass: isCharacterClass(row.character_class) ? row.character_class : "Guerreiro",
+    background: toCharacterBackground(row.character_background),
     country: row.country || "br",
     totalXp: row.total_xp,
     yearXp: row.year_xp,

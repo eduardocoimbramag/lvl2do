@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import { emitBossHit } from "@/lib/bossEvents";
 import { useAuth } from "@/components/AuthProvider";
 import { updateMyProfile } from "@/lib/db/profiles";
 import { daysBetweenDateKeys, DAILY_XP_LIMIT } from "@/lib/xp-system";
@@ -144,7 +145,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const missionsApi = useMissions({
     userId,
     todayKey,
-    onServerUpdate: ({ kind, profile, xp, baseXp, dateKey }) => {
+    onServerUpdate: ({ kind, profile, xp, baseXp, dateKey, category }) => {
       const { levelBefore, levelAfter } = adoptServerProfile(profile);
       adoptStreak(
         profile.current_streak ?? 0,
@@ -152,6 +153,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         profile.last_mission_completed_at ?? null,
       );
       if (kind === "complete") {
+        // Dano no boss é aplicado por TRIGGER na mesma transação da RPC — ao
+        // chegar aqui o HP novo já está commitado; quem ouvir pode re-buscar.
+        // Revert não emite: revert não cura o boss.
+        emitBossHit(category);
         showFeedback({
           kind: "gain",
           xp,

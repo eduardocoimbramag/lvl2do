@@ -34,6 +34,7 @@ export function RankingRow({ rank, player, xp, isCurrentUser }: RankingRowProps)
         characterClass={player.characterClass}
         level={player.level}
         size="sm"
+        background={player.background}
         showLevel={false}
       />
 

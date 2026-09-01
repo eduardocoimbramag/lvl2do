@@ -1,4 +1,5 @@
 import type { CharacterClass } from "./characterClasses";
+import type { CharacterBackgroundId } from "./characterBackgrounds";
 
 /**
  * Tipos e helpers do sistema social (amigos + ranking).
@@ -15,6 +16,8 @@ export interface Player {
   /** dias consecutivos (streak). */
   streak: number;
   characterClass: CharacterClass;
+  /** cenário atrás do personagem, escolhido pelo próprio jogador. */
+  background: CharacterBackgroundId;
   /** código ISO-3166 alpha-2 (minúsculo), ex.: "br". */
   country: string;
   /** XP acumulado total — ranking "Todos os tempos". */
