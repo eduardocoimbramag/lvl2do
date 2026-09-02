@@ -10,6 +10,7 @@ import { NewAlarmModal, type AlarmDraft } from "@/components/NewAlarmModal";
 import { AnimatedGrid } from "@/components/Section";
 import { useAppAlarms } from "@/hooks/AppStateProvider";
 import {
+  ALARMS_ENABLED,
   alarmFireTimes,
   alarmOccursOnDate,
   timeToMinutes,
@@ -18,6 +19,35 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function AlarmsPage() {
+  // A rota continua existindo (link antigo, histórico, autocomplete do
+  // navegador). Enquanto a feature está pausada ela mostra o estado "Em breve"
+  // em vez do gerenciador: criar alarme aqui produziria alarme que nunca toca,
+  // porque o AlarmScheduler não é montado.
+  if (!ALARMS_ENABLED) return <AlarmsEmBreve />;
+  return <AlarmsManager />;
+}
+
+/** Estado "Em breve" — espelha o selo da navegação. */
+function AlarmsEmBreve() {
+  return (
+    <>
+      <PageHeader title="Alarmes" subtitle="Lembretes para as suas missões." />
+      <div className="card-surface flex flex-col items-center gap-3 p-12 text-center">
+        <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-brand/20 bg-brand/10 text-brand-light">
+          <AlarmClock size={26} />
+        </span>
+        <p className="font-display text-base font-semibold text-soft">Em breve</p>
+        <p className="max-w-sm text-sm text-muted">
+          Os alarmes estão em desenvolvimento. Enquanto isso, use o{" "}
+          <span className="text-brand-light">Modo Foco</span> para se concentrar em uma missão
+          por vez.
+        </p>
+      </div>
+    </>
+  );
+}
+
+function AlarmsManager() {
   const { alarms, hydrated, addAlarm, updateAlarm, removeAlarm, toggleEnabled, enabledCount } =
     useAppAlarms();
 

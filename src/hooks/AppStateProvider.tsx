@@ -37,8 +37,18 @@ type AppState = ReturnType<typeof useUserStats> & {
 const AppStateContext = createContext<AppState | null>(null);
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const userId = user?.id ?? null;
+
+  /**
+   * As sementes vieram MESMO do banco?
+   *
+   * Este provider monta ACIMA do ClassGuard/AccessGuard e o AuthProvider só
+   * preenche o profile depois de um await de rede — então no primeiro render
+   * `profile` é SEMPRE null e todas as sementes valem 0/null. Gravar nesse
+   * estado zerava o XP do usuário a cada carregamento. Ver docs/auditoriaxp.md.
+   */
+  const seedReady = !loading && !!profile;
 
   // "hoje" como estado — atualiza na virada de meia-noite com o app aberto
   // (auditoria A2). Entra nas deps de tudo que depende do dia atual.
@@ -86,6 +96,32 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [lossCheckSupported],
   );
 
+  /**
+   * Persiste SOMENTE os orçamentos diários.
+   *
+   * Canal separado do persistStats de propósito: migrar o contador do dia não
+   * é motivo para reescrever total_xp/level, e foi esse acoplamento que
+   * produziu a zeragem. Sem fallback que reintroduza o total.
+   */
+  const persistDailyBudgets = useCallback(
+    (s: {
+      dailyXp: number;
+      dailyXpDate: string;
+      yesterdayXp: number;
+      yesterdayXpDate: string | null;
+      lastXpLossCheckDate: string | null;
+    }) => {
+      updateMyProfile({
+        daily_xp: s.dailyXp,
+        daily_xp_date: s.dailyXpDate,
+        yesterday_xp: s.yesterdayXp,
+        yesterday_xp_date: s.yesterdayXpDate,
+        ...(lossCheckSupported ? { last_xp_loss_check_date: s.lastXpLossCheckDate } : {}),
+      }).catch((e) => console.warn("[persistDailyBudgets] falhou:", e));
+    },
+    [lossCheckSupported],
+  );
+
   // progressão (XP/level + diário) semeada do banco — conta nova começa em 0.
   const userStats = useUserStats({
     seedTotalXp: profile?.total_xp ?? 0,
@@ -97,6 +133,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     seedLastCompletedAt: profile?.last_mission_completed_at ?? null,
     seedLossCheckDate: profile?.last_xp_loss_check_date ?? null,
     inactivityEnabled: lossCheckSupported,
+    seedReady,
+    persistDailyBudgets,
     persistStats,
   });
 
@@ -145,7 +183,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const missionsApi = useMissions({
     userId,
     todayKey,
-    onServerUpdate: ({ kind, profile, xp, baseXp, dateKey, category }) => {
+    onServerUpdate: ({ kind, profile, xp, baseXp, dateKey, category, boss, bossDamage }) => {
       const { levelBefore, levelAfter } = adoptServerProfile(profile);
       adoptStreak(
         profile.current_streak ?? 0,
@@ -153,10 +191,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         profile.last_mission_completed_at ?? null,
       );
       if (kind === "complete") {
-        // Dano no boss é aplicado por TRIGGER na mesma transação da RPC — ao
-        // chegar aqui o HP novo já está commitado; quem ouvir pode re-buscar.
-        // Revert não emite: revert não cura o boss.
-        emitBossHit(category);
+        // O trigger de dano roda na MESMA transação da RPC, então o estado que
+        // chega aqui já é o pós-golpe. Mandamos o estado inteiro (e o dano) em
+        // vez de só a categoria: assim quem ouve não precisa adivinhar se houve
+        // dano nem re-buscar. Revert não emite — revert não cura o boss.
+        emitBossHit({ category, damage: bossDamage ?? 0, boss: boss ?? null });
         showFeedback({
           kind: "gain",
           xp,

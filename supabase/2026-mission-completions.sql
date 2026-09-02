@@ -123,6 +123,9 @@ declare
   v_total integer;
   v_profile_json jsonb;
   v_mission_json jsonb;
+  v_boss_hp_before integer;
+  v_boss           jsonb;
+  v_boss_damage    integer := 0;
 begin
   if v_uid is null then raise exception 'not_authenticated'; end if;
 
@@ -171,6 +174,15 @@ begin
     else (v_date::timestamp + interval '12 hours') at time zone 'America/Sao_Paulo'
   end;
 
+  -- HP do boss ANTES do insert. O trigger boss_hits_after_completion é
+  -- AFTER INSERT na MESMA transação, então o delta lido depois é o dano exato,
+  -- inclusive os zeros (cap de 5/dia, boss morto, re-conclusão barrada pelo
+  -- ledger). É isso que dispensa o cliente de adivinhar se houve dano.
+  select hp into v_boss_hp_before
+    from boss_battles
+   where user_id = v_uid and category = v_mission.category;
+  v_boss_hp_before := coalesce(v_boss_hp_before, 100);
+
   -- 3.1 registra a conclusão (barrada pelo índice único se houver corrida)
   insert into mission_completions (
     user_id, mission_id,
@@ -185,6 +197,26 @@ begin
     v_date, v_mission.xp, v_credited, 'mission'
   )
   returning id into v_completion_id;
+
+  -- Estado do boss DEPOIS do trigger, no mesmo shape de get_boss_battles, para
+  -- o cliente adotar sem refetch.
+  select jsonb_build_object(
+           'category',    b.category,
+           'hp',          b.hp,
+           'max_hp',      100,
+           'defeated_at', b.defeated_at,
+           'hits_today',  (
+             select count(*)::int from boss_hits h
+              where h.user_id = v_uid
+                and h.category = b.category
+                and h.capped_on = (now() at time zone 'America/Sao_Paulo')::date
+           ),
+           'updated_at',  b.updated_at
+         ),
+         greatest(0, v_boss_hp_before - b.hp)
+    into v_boss, v_boss_damage
+    from boss_battles b
+   where b.user_id = v_uid and b.category = v_mission.category;
 
   -- 3.2 status da missão: só "uma vez" usa o status global
   if v_mission.schedule_type = 'today' then
@@ -266,7 +298,9 @@ begin
     'profile', v_profile_json,
     'mission', v_mission_json,
     'credited_xp', v_credited,
-    'completed_for_date', v_date
+    'completed_for_date', v_date,
+    'boss', v_boss,
+    'boss_damage', coalesce(v_boss_damage, 0)
   );
 end; $$;
 

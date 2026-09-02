@@ -36,7 +36,7 @@ const FAQS: Faq[] = [
   {
     question: "O app tem Pomodoro e alarmes?",
     answer:
-      "Sim. O lvl2do conta com Modo Focus/Pomodoro para ajudar você a se concentrar em uma missão por vez, além de alarmes para lembrar suas tarefas importantes.",
+      "O Modo Focus/Pomodoro já está disponível para você se concentrar em uma missão por vez. Os alarmes para lembrar tarefas estão a caminho.",
   },
   {
     question: "Posso cancelar quando quiser?",

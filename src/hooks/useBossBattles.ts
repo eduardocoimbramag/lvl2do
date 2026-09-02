@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useAppStats } from "@/hooks/AppStateProvider";
 import { getBossBattles, collectBossTreasure } from "@/lib/db/bossBattles";
-import { subscribeBossHits } from "@/lib/bossEvents";
 import type { Category } from "@/data/types";
 import type { BossBattleState } from "@/types/database";
 
@@ -54,8 +53,20 @@ export function useBossBattles() {
     if (user) refetch();
   }, [user, refetch]);
 
-  // conclusão de missão em qualquer tela com o Row montado (colunas E calendário)
-  useEffect(() => subscribeBossHits(() => refetch()), [refetch]);
+  /**
+   * Adota o estado autoritativo devolvido por complete_mission_atomic.
+   *
+   * A ASSINATURA do pub/sub saiu daqui de propósito: quem escuta agora é a
+   * coreografia, porque só ela sabe QUANDO o número novo deve entrar na tela —
+   * no frame do impacto, e não um RTT antes dele. Um ouvinte só significa
+   * nenhuma corrida de ordenação entre refetch e animação.
+   */
+  const applyHit = useCallback((next: BossBattleState) => {
+    // invalida refetches em voo, pela mesma razão do collect: a resposta da RPC
+    // é mais nova que qualquer GET disparado antes dela.
+    seq.current++;
+    setBosses((prev) => (prev ? { ...prev, [next.category]: next } : prev));
+  }, []);
 
   // volta a esta aba: ressincroniza (ex.: boss coletado noutra aba)
   useEffect(() => {
@@ -87,5 +98,5 @@ export function useBossBattles() {
     [todayKey, refetch],
   );
 
-  return { status, bosses, refetch, collect, collecting };
+  return { status, bosses, refetch, collect, collecting, applyHit };
 }

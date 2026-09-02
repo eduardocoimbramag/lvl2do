@@ -56,6 +56,13 @@ export type ProfileRow = {
   country: string;
   /** saldo de cristais de energia (loja). */
   crystals: number;
+  /**
+   * Saldo de moedas de ouro. OPCIONAL: a coluna ainda NÃO existe no banco —
+   * mesmo tratamento de `plan`/`subscription_status` abaixo. O contador da
+   * sidebar já a exibe com fallback 0; quando a economia for criada, basta
+   * `alter table profiles add column gold integer not null default 0`.
+   */
+  gold?: number | null;
 
   /* ------------------------------------------------------------------ */
   /*  Assinatura (FUTURO — RevenueCat).                                  */

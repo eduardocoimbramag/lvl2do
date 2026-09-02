@@ -16,6 +16,7 @@ import { GlobalXpToast } from "@/components/GlobalXpToast";
 import { ClassGuard } from "@/components/ClassGuard";
 import { AccessGuard } from "@/components/AccessGuard";
 import { AlarmScheduler } from "@/components/AlarmScheduler";
+import { ALARMS_ENABLED } from "@/data/alarms";
 import { AppStateProvider } from "@/hooks/AppStateProvider";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -42,7 +43,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <GlobalXpToast />
 
             {/* motor de disparo dos alarmes (sem UI) — toca som + notifica no horário */}
-            <AlarmScheduler />
+            {/* pausado: sem isto, alarmes salvos continuariam tocando sem
+                nenhum caminho na UI para desligá-los */}
+            {ALARMS_ENABLED && <AlarmScheduler />}
           </div>
         </AccessGuard>
       </ClassGuard>

@@ -101,7 +101,7 @@ export const proPlan = {
     "Todas as classes desbloqueadas",
     "Evolução visual do personagem",
     "Modo Focus/Pomodoro",
-    "Alarmes inteligentes",
+    "Alarmes inteligentes (em breve)",
     "Gráficos de progresso",
   ],
   ctas: [

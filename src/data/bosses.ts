@@ -1,5 +1,4 @@
 import type { Category } from "./types";
-import type { CharacterBackgroundId } from "./characterBackgrounds";
 
 /**
  * Arenas fixas do widget TBH (uma por categoria de missão).
@@ -15,16 +14,32 @@ export const BOSS_MAX_HP = 100;
 export const BOSS_DAILY_HIT_CAP = 5;
 
 export interface BossMeta {
-  /** nome próprio curto, sabor medieval — a área já vem do CategoryBadge. */
+  /** nome próprio curto, sabor medieval. */
   name: string;
-  /** PNG 1254×1254 com alpha em public/bosses/. */
+  /** sprite do boss: PNG 1254×1254 com alpha. */
   image: string;
-  /** cenário FIXO da arena. */
-  backdrop: CharacterBackgroundId;
+  /**
+   * Cenário FIXO da arena: PNG 1536×1024 (3:2) sem alpha.
+   * Identifica a ÁREA — não segue a preferência de fundo do jogador, que é
+   * outro conceito (ver @/data/characterBackgrounds).
+   */
+  scene: string;
 }
 
 export const bossMeta: Record<Category, BossMeta> = {
-  Profissional: { name: "Brasmor, o Dragão", image: "/bosses/dragonboss.png", backdrop: "castelo" },
-  Pessoal: { name: "Aldric, o Cavaleiro", image: "/bosses/knightboss.png", backdrop: "trono" },
-  Saúde: { name: "Gromak, o Orc", image: "/bosses/orcboss.png", backdrop: "floresta" },
+  Profissional: {
+    name: "Brasmor, o Dragão",
+    image: "/bosses/dragonboss.png",
+    scene: "/bosses/fundodragao.png",
+  },
+  Pessoal: {
+    name: "Aldric, o Cavaleiro",
+    image: "/bosses/knightboss.png",
+    scene: "/bosses/fundocavaleiro.png",
+  },
+  Saúde: {
+    name: "Gromak, o Orc",
+    image: "/bosses/orcboss.png",
+    scene: "/bosses/fundoorc.png",
+  },
 };

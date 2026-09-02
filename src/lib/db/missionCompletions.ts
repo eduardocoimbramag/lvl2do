@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import type { MissionRow, ProfileRow } from "@/types/database";
+import type { BossBattleState, MissionRow, ProfileRow } from "@/types/database";
 
 /**
  * RPCs ATÔMICAS de conclusão/reversão de missão (ver
@@ -15,6 +15,10 @@ export interface AtomicCompleteResult {
   mission: MissionRow | null;
   credited_xp: number;
   completed_for_date: string;
+  /** Estado do boss DEPOIS do golpe. undefined = RPC anterior à migração. */
+  boss?: BossBattleState | null;
+  /** Dano aplicado nesta conclusão. 0 = cap diário, boss morto ou re-conclusão. */
+  boss_damage?: number;
 }
 
 /** Retorno de revert_mission_atomic. */

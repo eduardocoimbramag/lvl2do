@@ -126,7 +126,7 @@ Pronto — a conta volta ao estado inicial.
 Implementado no menu do avatar da sidebar → **Configurações → Área de ADM**
 (visível só para os e-mails em `src/lib/devAccess.ts`). Arquivos:
 `src/lib/devAccess.ts`, `src/lib/db/resetAccount.ts`,
-`src/components/AccountMenu.tsx`, `src/components/SettingsModal.tsx`.
+`src/components/AccountMenu.tsx`, `src/components/src/app/(app)/settings/page.tsx`.
 
 > ⚠️ **Pré-requisito (rodar UMA vez):** o botão apaga dados via cliente, e o RLS
 > só permite DELETE onde há policy. Hoje só `missions` tem. Rode

@@ -35,6 +35,7 @@ const ACCESS_PREFIXES = [
   "/store",
   "/profile",
   "/support",
+  "/settings",
 ];
 
 function isPublic(pathname: string): boolean {

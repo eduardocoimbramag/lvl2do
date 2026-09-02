@@ -11,6 +11,7 @@ import { PreconfiguredMissions } from "@/components/PreconfiguredMissions";
 import { Button } from "@/components/Button";
 import { categoryMeta } from "@/components/CategoryBadge";
 import { BossBattleRow } from "@/components/BossBattleRow";
+import { armAttackIntent } from "@/lib/attackIntent";
 import { useAppMissions } from "@/hooks/AppStateProvider";
 import { CATEGORIES, toISODate, type Category, type Mission } from "@/data/types";
 import { cn } from "@/lib/utils";
@@ -65,8 +66,14 @@ export default function MissionsPage() {
         <Pill label="XP ganho" value={stats.xpEarned} icon />
       </div>
 
-      {/* 3 cards/colunas por categoria */}
-      <div className="grid gap-5 lg:grid-cols-3">
+      {/* 3 cards/colunas por categoria.
+          onClickCapture arma a intenção de rolagem: o dano só chega 200–800ms
+          depois (RTT da RPC), e sem essa âncora a página se moveria "sozinha"
+          em situações em que o usuário nem tocou no botão. */}
+      <div
+        className="grid gap-5 lg:grid-cols-3"
+        onClickCapture={(e) => armAttackIntent(e.clientY, Date.now())}
+      >
         {CATEGORIES.map((category) => (
           <CategoryColumn
             key={category}

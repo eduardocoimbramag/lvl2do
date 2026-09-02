@@ -1,4 +1,17 @@
 /**
+ * Alarmes estão PAUSADOS ("Em breve").
+ *
+ * Fonte única de verdade: desligar só a navegação não bastava — o
+ * AlarmScheduler continuava montado no layout e alarmes já salvos em
+ * localStorage seguiam tocando som e criando notificação a cada 15s, sem
+ * nenhum caminho na UI para desligá-los. Esta flag governa os três pontos:
+ * os itens de navegação, a montagem do motor e o corpo da página /alarms.
+ *
+ * Os DADOS são preservados (lvl2do.alarms.v1) — ao religar, tudo volta.
+ */
+export const ALARMS_ENABLED = false;
+
+/**
  * Tipos e lógica de domínio dos Alarmes.
  *
  * Reaproveita o conceito de agendamento das missões (once/weekly/dates), e

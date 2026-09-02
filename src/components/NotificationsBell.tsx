@@ -32,7 +32,18 @@ function formatWhen(iso: string) {
  * listando as notificações; fecha ao clicar fora. A lista começa vazia — o
  * sistema que gera notificações será plugado depois (ver useNotifications).
  */
-export function NotificationsBell() {
+interface NotificationsBellProps {
+  /**
+   * Lado do sino em que o painel se alinha.
+   * "start" (padrão) serve a sidebar, onde o sino fica à esquerda da tela.
+   * "end" é obrigatório na topbar mobile: lá o sino encosta na borda direita,
+   * e alinhar pelo início jogaria 200px do painel para fora da viewport —
+   * criando inclusive rolagem horizontal na página inteira.
+   */
+  align?: "start" | "end";
+}
+
+export function NotificationsBell({ align = "start" }: NotificationsBellProps = {}) {
   const { notifications, unreadCount, markAllRead, removeNotification, clearAll } =
     useAppNotifications();
   const [open, setOpen] = useState(false);
@@ -85,12 +96,17 @@ export function NotificationsBell() {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            // ancorado acima do sino, abrindo para a DIREITA (a sidebar fica à esquerda)
-            className="absolute bottom-full left-0 z-50 mb-2 w-72 origin-bottom-left overflow-hidden rounded-2xl border border-white/10 bg-ink-card shadow-glow"
+            // Abre ABAIXO do sino (ele mora no topo, tanto na sidebar quanto na
+            // topbar). A largura é limitada à viewport para nunca vazar em telas
+            // estreitas — o padding lateral do container é de 20px por lado.
+            className={cn(
+              "absolute top-full z-50 mt-2 w-[min(18rem,calc(100vw_-_2.5rem))] overflow-hidden rounded-2xl border border-white/10 bg-ink-card shadow-glow",
+              align === "end" ? "right-0 origin-top-right" : "left-0 origin-top-left",
+            )}
           >
             <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
               <h3 className="font-display text-sm font-semibold text-soft">Notificações</h3>

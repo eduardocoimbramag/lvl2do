@@ -17,10 +17,13 @@ export function AppTopbar() {
   }
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-white/[0.06] bg-ink/80 px-5 backdrop-blur-xl md:hidden">
+    // z-40 e não z-20: `sticky` + `z-index` cria contexto de empilhamento, então
+    // o z-50 do painel de notificações é clampado ao z da header. Com z-20 ele
+    // ficava ATRÁS da BottomNav (z-30). Header e BottomNav não se sobrepõem.
+    <header data-app-topbar className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-white/[0.06] bg-ink/80 px-5 backdrop-blur-xl md:hidden">
       <Logo size="sm" />
       <div className="flex items-center gap-1">
-        <NotificationsBell />
+        <NotificationsBell align="end" />
         <button
           type="button"
           onClick={handleSignOut}

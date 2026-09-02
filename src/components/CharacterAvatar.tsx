@@ -5,11 +5,25 @@ import type { CharacterBackgroundId } from "@/data/characterBackgrounds";
 import { cn } from "@/lib/utils";
 
 const SIZES = {
+  /** card da conta na sidebar — mesma caixa do antigo selo de inicial. */
+  xs: "h-9 w-9",
   sm: "h-12 w-12",
   md: "h-16 w-16",
   lg: "h-20 w-20",
   /** trilho de stories: cresce no desktop sem duplicar o componente. */
   story: "h-14 w-14 sm:h-16 sm:w-16",
+} as const;
+
+/**
+ * Hint de largura por tamanho. Sem isto o next/image usava "80px" fixo e o
+ * browser baixava o candidato de 256w até para o avatar de 36px da sidebar.
+ */
+const SIZE_HINTS = {
+  xs: "36px",
+  sm: "48px",
+  md: "64px",
+  lg: "80px",
+  story: "64px",
 } as const;
 
 /** Moldura: quadrada (padrão do app) ou circular (trilho de stories). */
@@ -28,6 +42,12 @@ interface CharacterAvatarProps {
   shape?: keyof typeof SHAPES;
   /** cenário atrás do personagem. Omitido = fundo escuro padrão. */
   background?: CharacterBackgroundId;
+  /**
+   * Arte já resolvida, tendo prioridade sobre a derivação por nível. Use para
+   * honrar a skin que o usuário fixou (useCharacterSkin().resolveImage) —
+   * a derivação interna só conhece o tier automático do nível.
+   */
+  artSrc?: string | null;
   className?: string;
 }
 
@@ -42,9 +62,11 @@ export function CharacterAvatar({
   showLevel = true,
   shape = "square",
   background = "none",
+  artSrc,
   className,
 }: CharacterAvatarProps) {
-  const art = characterClass ? getCharacterImage(characterClass, level) : null;
+  const art =
+    artSrc ?? (characterClass ? getCharacterImage(characterClass, level) : null);
 
   return (
     <div className={cn("relative shrink-0", className)}>
@@ -61,7 +83,7 @@ export function CharacterAvatar({
             src={art}
             alt={characterClass ?? "Personagem"}
             fill
-            sizes="80px"
+            sizes={SIZE_HINTS[size]}
             className="relative object-cover"
           />
         ) : (

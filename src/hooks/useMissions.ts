@@ -14,7 +14,7 @@ import {
   revertMissionAtomic,
   getActiveCompletions,
 } from "@/lib/db/missionCompletions";
-import type { ProfileRow } from "@/types/database";
+import type { BossBattleState, ProfileRow } from "@/types/database";
 import {
   SHIFTS,
   isScheduledOn,
@@ -108,6 +108,10 @@ interface UseMissionsOptions {
     baseXp?: number;
     dateKey: string;
     category: Mission["category"];
+    /** estado do boss pós-golpe (só em "complete"); null = RPC antiga. */
+    boss?: BossBattleState | null;
+    /** dano aplicado (só em "complete"); 0 = cap, boss morto ou re-conclusão. */
+    bossDamage?: number;
   }) => void;
   /** falha de RPC (a UI deve avisar; o estado local NÃO muda). */
   onRpcError?: (message: string) => void;
@@ -205,6 +209,8 @@ export function useMissions({ userId, todayKey, onServerUpdate, onRpcError }: Us
         baseXp: target.xp,
         dateKey: res.completed_for_date,
         category: target.category,
+        boss: res.boss ?? null,
+        bossDamage: res.boss_damage ?? 0,
       });
     } catch (e) {
       const msg = String((e as { message?: string })?.message ?? "");
@@ -383,6 +389,8 @@ export function useMissions({ userId, todayKey, onServerUpdate, onRpcError }: Us
           baseXp: input.xp,
           dateKey: res.completed_for_date,
           category: input.category,
+          boss: res.boss ?? null,
+          bossDamage: res.boss_damage ?? 0,
         });
         return res.credited_xp;
       } catch (e) {

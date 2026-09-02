@@ -69,6 +69,29 @@ interface UseUserStatsOptions {
    * cada reload por falta de persistência da marca de checagem).
    */
   inactivityEnabled?: boolean;
+  /**
+   * As sementes vieram MESMO do banco (profile carregado)?
+   *
+   * Enquanto for false, este hook NUNCA escreve no banco. Sem essa trava, o
+   * primeiro render — em que `profile` ainda é null e todas as sementes valem
+   * 0/null — gravava `total_xp = 0` por cima do XP real do usuário, a cada
+   * carregamento de página. Ver docs/auditoriaxp.md.
+   */
+  seedReady?: boolean;
+  /**
+   * Persiste SOMENTE os orçamentos diários (hoje/ontem).
+   *
+   * Canal separado de propósito: a migração de virada de dia não tem motivo
+   * para carregar `total_xp` junto, e foi exatamente esse acoplamento que
+   * transformou uma normalização de orçamento numa zeragem de XP.
+   */
+  persistDailyBudgets?: (snapshot: {
+    dailyXp: number;
+    dailyXpDate: string;
+    yesterdayXp: number;
+    yesterdayXpDate: string | null;
+    lastXpLossCheckDate: string | null;
+  }) => void;
   /** persiste XP/level + contadores diários no banco (best-effort). */
   persistStats?: (snapshot: {
     totalXp: number;
@@ -96,6 +119,8 @@ export function useUserStats({
   seedLastCompletedAt = null,
   seedLossCheckDate = null,
   inactivityEnabled = false,
+  seedReady = false,
+  persistDailyBudgets,
   persistStats,
 }: UseUserStatsOptions) {
   const [stats, setStats] = useState<UserStats>(() => {
@@ -122,6 +147,12 @@ export function useUserStats({
   const dirty = useRef(false);
   const persistRef = useRef(persistStats);
   persistRef.current = persistStats;
+  const persistBudgetsRef = useRef(persistDailyBudgets);
+  persistBudgetsRef.current = persistDailyBudgets;
+  // trava única de escrita: nada sai deste hook para o banco antes de o
+  // profile ter carregado. É a correção central de docs/auditoriaxp.md.
+  const seedReadyRef = useRef(seedReady);
+  seedReadyRef.current = seedReady;
 
   // re-semeia a partir do banco enquanto não houve interação nesta sessão
   // (ex.: o profile carrega depois da montagem).
@@ -146,6 +177,11 @@ export function useUserStats({
     statsRef.current = next;
     setStats(next);
 
+    // NUNCA persistir com semente vazia. Antes de o profile carregar, todos os
+    // seeds valem 0/null e `changed` é verdadeiro incondicionalmente (as datas
+    // normalizadas nunca são null) — o que gravava total_xp = 0 no banco.
+    if (!seedReady) return;
+
     // Se a virada do dia migrou/zerou orçamentos (o resultado difere do banco),
     // persiste UMA vez — senão, ao abrir em D+1 sem concluir nada, a migração
     // se perderia (o commit só dispara ao concluir/desfazer). Não marca dirty.
@@ -155,9 +191,8 @@ export function useUserStats({
       next.yesterdayXp !== seedYesterdayXp ||
       next.yesterdayXpDate !== seedYesterdayXpDate;
     if (changed) {
-      persistRef.current?.({
-        totalXp: next.totalXp,
-        level: next.level,
+      // canal de ORÇAMENTO: não carrega total_xp nem level
+      persistBudgetsRef.current?.({
         dailyXp: next.dailyXp,
         dailyXpDate: next.dailyXpDate,
         yesterdayXp: next.yesterdayXp,
@@ -173,14 +208,32 @@ export function useUserStats({
     seedYesterdayXpDate,
     seedLastCompletedAt,
     seedLossCheckDate,
+    seedReady,
   ]);
 
   const commit = useCallback((value: UserStats) => {
     statsRef.current = value;
     setStats(value);
+    // Mesma trava do efeito de re-semeadura: sem profile carregado, o que
+    // houver em memória não é verdade e não pode ir para o banco.
+    if (!seedReadyRef.current) return;
     persistRef.current?.({
       totalXp: value.totalXp,
       level: value.level,
+      dailyXp: value.dailyXp,
+      dailyXpDate: value.dailyXpDate,
+      yesterdayXp: value.yesterdayXp,
+      yesterdayXpDate: value.yesterdayXpDate,
+      lastXpLossCheckDate: value.lastXpLossCheckDate,
+    });
+  }, []);
+
+  /** Atualiza o estado e persiste SÓ os orçamentos (sem tocar em total_xp). */
+  const commitBudgets = useCallback((value: UserStats) => {
+    statsRef.current = value;
+    setStats(value);
+    if (!seedReadyRef.current) return;
+    persistBudgetsRef.current?.({
       dailyXp: value.dailyXp,
       dailyXpDate: value.dailyXpDate,
       yesterdayXp: value.yesterdayXp,
@@ -194,6 +247,9 @@ export function useUserStats({
    * tick) muda, re-normaliza os orçamentos (migra dailyXp→yesterdayXp) e
    * persiste — mesmo em sessão "dirty", pois a normalização é idempotente e
    * não perde ganhos locais. No mount é no-op (o seed já normalizou).
+   *
+   * Persiste pelo canal de ORÇAMENTO: migrar o contador do dia não é motivo
+   * para reescrever o total de XP.
    */
   useEffect(() => {
     if (!todayKeyProp) return;
@@ -204,8 +260,8 @@ export function useUserStats({
       next.dailyXpDate !== cur.dailyXpDate ||
       next.yesterdayXp !== cur.yesterdayXp ||
       next.yesterdayXpDate !== cur.yesterdayXpDate;
-    if (changed) commit(next);
-  }, [todayKeyProp, commit]);
+    if (changed) commitBudgets(next);
+  }, [todayKeyProp, commitBudgets]);
 
   /**
    * PERDA POR INATIVIDADE (auditoria A3): aplica −200 XP por dia inteiro sem

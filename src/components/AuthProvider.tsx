@@ -44,8 +44,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
         return;
       }
-      const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
-      setProfile((data as ProfileRow | null) ?? null);
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", uid).single();
+      // Falha de rede não pode DERRUBAR um profile já carregado: com profile
+      // null, todo consumidor volta a ver 0 de XP — e antes da correção isso
+      // ainda era gravado de volta no banco. Mantém o último bom.
+      if (error) {
+        console.warn("[AuthProvider] falha ao carregar o profile; mantendo o anterior:", error);
+        return;
+      }
+      setProfile(data as ProfileRow);
     },
     [supabase],
   );
