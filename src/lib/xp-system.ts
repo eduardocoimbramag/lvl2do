@@ -23,6 +23,16 @@ export const INACTIVE_DAY_XP_LOSS = 200;
 export const INACTIVITY_LOSS_ENABLED = false;
 
 /**
+ * Moedas de ouro creditadas a CADA nível ganho.
+ *
+ * Esta constante é só para EXIBIR. Quem credita de verdade é a RPC atômica de
+ * conclusão, na mesma transação do XP — o cliente nunca soma moeda sozinho, pelo
+ * mesmo motivo que não soma XP. Se mudar aqui, mude também na RPC (o arquivo de
+ * migração cita esta linha), senão a tela promete um número e o banco paga outro.
+ */
+export const LEVEL_UP_GOLD = 50;
+
+/**
  * Estatísticas de progressão do usuário.
  * Datas usam a chave local "YYYY-MM-DD" (ver getLocalDateKey).
  */

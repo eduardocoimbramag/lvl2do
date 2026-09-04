@@ -11,6 +11,7 @@ import { AnimatedGrid } from "@/components/Section";
 import { XpAreaChart } from "@/components/charts/XpAreaChart";
 import { MetricsPeriodToggle } from "@/components/MetricsPeriodToggle";
 import { useAuth } from "@/components/AuthProvider";
+import { isDevUser } from "@/lib/devAccess";
 import { useAppStats, useAppMissions } from "@/hooks/AppStateProvider";
 import { useMetrics } from "@/hooks/useMetrics";
 import { strongestOf, weakestOf, type MetricsPeriod } from "@/data/metricsData";
@@ -30,7 +31,7 @@ export default function ProgressPage() {
   const { user } = useAuth();
   const { bestStreak } = useAppStats();
   const { allMissions } = useAppMissions();
-  const { byPeriod, error } = useMetrics({
+  const { byPeriod, loading, error, debug } = useMetrics({
     userId: user?.id ?? null,
     missions: allMissions,
     bestStreak,
@@ -50,6 +51,45 @@ export default function ProgressPage() {
         action={<MetricsPeriodToggle value={period} onChange={setPeriod} />}
       />
 
+      {/* Painel de diagnóstico — SOMENTE para e-mails de dev (ver isDevUser).
+          Temporário: existe para responder "o dado chegou no navegador?" sem
+          precisar do DevTools. Some sozinho para qualquer outro usuário, e pode
+          ser apagado junto com o campo `debug` do useMetrics quando a questão
+          estiver encerrada. */}
+      {isDevUser(user?.email) && (
+        <details className="mb-5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs">
+          <summary className="cursor-pointer font-medium text-muted">
+            Diagnóstico das métricas (só você vê isto)
+          </summary>
+          <dl className="mt-3 grid gap-1.5 sm:grid-cols-2">
+            {[
+              ["estado da busca", debug.loading ? "CARREGANDO (não terminou)" : "concluída"],
+              ["deu erro?", debug.error ? "SIM — veja o aviso amarelo" : "não"],
+              ["userId usado", debug.userId ?? "NULO — a busca nem começou"],
+              ["eventos recebidos", String(debug.total)],
+              ["conclusões entre eles", String(debug.concluidas)],
+              [
+                "intervalo dos eventos",
+                debug.primeiro ? `${debug.primeiro} → ${debug.ultimo}` : "—",
+              ],
+              ["XP calculado (período atual)", String(data.xpInPeriod)],
+              ["missões calculadas (período atual)", String(data.missionsCompleted)],
+            ].map(([rotulo, valor]) => (
+              <div key={rotulo} className="flex gap-2">
+                <dt className="shrink-0 text-muted">{rotulo}:</dt>
+                <dd className="min-w-0 break-all font-medium text-soft">{valor}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-3 leading-relaxed text-muted">
+            Esperado para a sua conta: <strong className="text-soft">31 eventos</strong>, de
+            10/07/2026 a 04/09/2026, com <strong className="text-soft">24 conclusões</strong>. Se
+            &quot;eventos recebidos&quot; for 0 e não houver erro, o dado não está chegando ao
+            navegador. Se for 31 e os cards mostrarem 0, o problema é no cálculo.
+          </p>
+        </details>
+      )}
+
       {error && (
         <p
           role="alert"
@@ -58,6 +98,14 @@ export default function ProgressPage() {
           Não foi possível carregar seu histórico de XP. Os números por período podem estar
           incompletos — recarregue a página para tentar de novo.
         </p>
+      )}
+
+      {/* Enquanto o histórico não chega, os cards mostrariam "0" — igualzinho a
+          uma conta sem nenhuma missão concluída. Foi essa ambiguidade que fez o
+          problema demorar tanto a ser cercado. Um aviso curto separa as duas
+          coisas em vez de deixar o zero mentir. */}
+      {loading && (
+        <p className="mb-5 text-xs text-muted">Carregando seu histórico de XP…</p>
       )}
 
       {/* stats principais — reagem ao período */}

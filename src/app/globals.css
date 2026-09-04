@@ -96,24 +96,32 @@ body {
 /* ========================================================================== */
 
 @layer utilities {
-  /* Uma expressão resolve tudo. O termo `100dvh − chrome` reserva o espaço do
-     bloco de texto NOS DOIS LADOS: é o preço da centragem literal. O grid
-     absorve erro de estimativa encolhendo a linha de cima.
+  /* O palco tem a proporção do MEIO-CÍRCULO que ele contém (400 × 268), e não
+     1:1. Um semicírculo é 2:1; num palco quadrado sobrava um terço vazio embaixo
+     do arco — e era essa sobra, e não uma margem mal escolhida, que abria o
+     buraco entre a chapa de nível e o título.
+
+     Como a ALTURA agora é 0,67 × largura, o orçamento vertical vira uma divisão:
+     para caber em `100dvh − chrome` de altura, a largura pode ir até
+     (100dvh − chrome) / 0,67. É por isso que o palco ficou MAIOR mesmo com o
+     personagem ocupando uma fração menor dele — a altura deixou de ser o gargalo.
+
      Nunca `100vw`: no desktop com barra de rolagem `100vw > clientWidth` e
-     apareceria scroll horizontal justamente na tela que travou o scroll. */
+     apareceria scroll horizontal justamente na tela que acabou de travar o scroll. */
   .lu-stage {
-    width: max(168px, min(86vw, calc(100vh - 320px), 420px)); /* fallback sem dvh */
-    width: max(168px, min(86vw, calc(100dvh - 320px), 420px));
+    aspect-ratio: 400 / 268;
+    width: max(220px, min(94vw, calc((100vh - 270px) / 0.67), 580px)); /* fallback sem dvh */
+    width: max(220px, min(94vw, calc((100dvh - 270px) / 0.67), 580px));
   }
   @media (min-width: 768px) {
     .lu-stage {
-      width: max(168px, min(72vw, calc(100dvh - 340px), 480px));
+      width: max(220px, min(88vw, calc((100dvh - 290px) / 0.67), 580px));
     }
   }
   /* celular deitado: o único caso em que o orçamento vertical estoura */
   @media (max-height: 520px) {
     .lu-stage {
-      width: max(140px, min(44vw, calc(100dvh - 130px), 300px));
+      width: max(180px, min(62vw, calc((100dvh - 150px) / 0.67), 420px));
     }
   }
 }

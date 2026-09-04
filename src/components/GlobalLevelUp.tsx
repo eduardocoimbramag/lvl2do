@@ -9,7 +9,7 @@ import { useCharacterSkin } from "@/hooks/useCharacterSkin";
 import { useAttackAnimationPref } from "@/hooks/useAttackAnimationPref";
 import { ATTACK, attackBudgetMs } from "@/lib/animations";
 import { LU_ART_TIMEOUT_MS, LU_GATE_CEILING_MS } from "@/lib/levelUpChoreography";
-import { SKIN_TIERS, levelArtTier, skinTierLabel } from "@/data/characterClasses";
+import { levelArtTier, skinTierLabel } from "@/data/characterClasses";
 
 /** Espera o decode da arte, com teto — evita o personagem em branco no frame mais visível. */
 function decodeWithCap(src: string | null, capMs: number): Promise<void> {
@@ -57,7 +57,6 @@ export function GlobalLevelUp() {
    */
   const crossedTier = !!shown && levelArtTier(shown.level) !== levelArtTier(shown.fromLevel);
   const tierLabel = shown ? skinTierLabel(levelArtTier(shown.level)) : null;
-  const nextTierLevel = shown ? (SKIN_TIERS.find((t) => t > shown.level) ?? null) : null;
   const xpToNext = shown ? Math.max(0, progress.xpForNextLevel - progress.xpIntoLevel) : 0;
 
   /**
@@ -149,7 +148,6 @@ export function GlobalLevelUp() {
       prevArtSrc={prevArtSrc}
       crossedTier={crossedTier}
       tierLabel={tierLabel}
-      nextTierLevel={nextTierLevel}
       preview={shown?.source === "simulation"}
       onConfirm={dismissLevelUp}
     />

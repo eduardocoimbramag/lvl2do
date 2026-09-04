@@ -68,72 +68,156 @@ export const LU_ART_TIMEOUT_MS = 400;
 /** teto da fila do portão: depois disso a celebração aparece de qualquer jeito. */
 export const LU_GATE_CEILING_MS = 8_000;
 
-/* ------------------------------- estrelas -------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*  O PALCO E O ARCO                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * O palco NÃO é quadrado.
+ *
+ * Um semicírculo ocupa 2 de largura para 1 de altura. Num palco quadrado sobrava
+ * um terço vazio embaixo do arco — e era essa sobra, e não uma margem mal
+ * escolhida, que abria o buraco entre a chapa de nível e o título. Dimensionar o
+ * palco pela figura que ele contém resolve o espaçamento na raiz, em vez de
+ * disfarçá-lo com margem negativa.
+ *
+ * A altura é escolhida para que o CENTRO DO PERSONAGEM caia exatamente no centro
+ * do palco (268 / 2 = 134 = cy do personagem): assim o palco continua sendo
+ * centrado pelo grid e o personagem continua no centro exato da viewport.
+ */
+export const LU_STAGE = { w: 400, h: 268 } as const;
+
+/**
+ * MEIO-CÍRCULO exato — curvatura de círculo perfeito, 180°.
+ *
+ * Base na altura do pé do personagem; sobe até o ápice e desce até a outra
+ * ponta, na mesma altura. Sem elipse: `rx === ry`, então a curvatura é constante
+ * do começo ao fim.
+ *
+ * O raio 184 é o maior que cabe: 200 − 184 − 9 (meia-largura do bloom) = 7 de
+ * folga em cada ponta e no ápice. Ele é quem determina o tamanho do personagem,
+ * e não o contrário — ver LU_CHAR_PCT.
+ */
+export const LU_ARC = {
+  cx: 200,
+  /** base do arco = altura do pé do personagem. */
+  cy: 200,
+  r: 184,
+  /** meia-largura do traço mais largo (bloom, strokeWidth 18). */
+  strokeHalf: 9,
+} as const;
+
+/**
+ * Um caminho só, da esquerda para a direita. Com `pathLength` de 0 a 1, a ponta
+ * caminha da ponta esquerda até a direita — a varredura é o próprio desenho.
+ * A corda (368) é igual a 2·r, então a solução é única: meio-círculo exato,
+ * sem ambiguidade de large-arc.
+ */
+export const LU_ARC_PATH = `M ${LU_ARC.cx - LU_ARC.r} ${LU_ARC.cy} A ${LU_ARC.r} ${LU_ARC.r} 0 0 1 ${LU_ARC.cx + LU_ARC.r} ${LU_ARC.cy}`;
+
+/** meia-extensão da caixa do personagem, em unidades do viewBox. */
+const CHAR_HALF = 66;
+/** centro da caixa do personagem: pé encostado na base do arco. */
+const CHAR_CY = LU_ARC.cy - CHAR_HALF; // 134 — e 134 é o meio de 268
+/** folga mínima entre estrela e qualquer vizinho (personagem ou traço). */
+const GAP = 5;
+
+/**
+ * Lado do personagem, em % da LARGURA do palco (a caixa é quadrada).
+ *
+ * 33% é o MAIOR valor em que as 26 estrelas ainda cabem no corredor entre a
+ * cabeça do personagem e o traço do arco — medido, não estimado. A 35% o
+ * corredor cai para 27,5 unidades e três estrelas do topo ficam sem lugar.
+ * Um semicírculo é mais raso que a elipse anterior, então o corredor superior
+ * é o recurso escasso da composição: é ele que fixa este número.
+ */
+export const LU_CHAR_PCT = (CHAR_HALF * 2 * 100) / LU_STAGE.w; // 33
+
+/** Distância da base do palco até o pé do personagem, em % da altura. */
+export const LU_CHAR_BOTTOM_PCT = ((LU_STAGE.h - LU_ARC.cy) * 100) / LU_STAGE.h;
+/** Altura da chapa de nível, no vão sob o arco, em % da altura do palco. */
+export const LU_CHIP_TOP_PCT = ((LU_ARC.cy + 32) * 100) / LU_STAGE.h;
+
+/* -------------------------------------------------------------------------- */
+/*  AS ESTRELAS                                                               */
+/* -------------------------------------------------------------------------- */
 
 const PHI = 0.618033988749895;
-/** raio do traço do arco, em % do palco (viewBox 400 → r=180). */
-const ARC_R = 45;
-/** borda INTERNA do traço: 45 − (strokeWidth 6 / 2) / 4. */
-const ARC_INNER = 44.25;
-/** meia-extensão da caixa do personagem (50% do palco). */
-const CHAR_HALF = 25;
-/** folga mínima em qualquer direção. */
-const GAP = 1.2;
 
 /** inversa de EASE_TRAVEL [0.65,0,0.35,1] — a inversa de bezier(x1,y1,x2,y2) é bezier(y1,x1,y2,x2). */
 const EASE_TRAVEL_INV = cubicBezier(0, 0.65, 1, 0.35);
 
+/** Ponto do arco no ângulo `t`, escalado por `s` (1 = em cima do traço). */
+function arcPoint(t: number, s = 1): [number, number] {
+  return [LU_ARC.cx + s * LU_ARC.r * Math.cos(t), LU_ARC.cy + s * LU_ARC.r * Math.sin(t)];
+}
+
 /**
- * Tabela DETERMINÍSTICA calculada no escopo do módulo — idêntica no servidor e
- * no cliente, sem `Math.random`, sem risco de mismatch de hidratação. Mesmo
- * princípio do comentário "posições fixas (determinístico)" do AnimatedBackground.
+ * Campo de estrelas, determinístico (sem Math.random: idêntico no servidor e no
+ * cliente, sem risco de mismatch de hidratação).
  *
- * DUAS decisões de geometria, ambas verificadas por cálculo:
+ * POSIÇÃO — cada estrela nasce ancorada num ponto do arco e é puxada para dentro
+ * até a faixa que ao mesmo tempo não encosta no traço e não invade a caixa
+ * quadrada do personagem. O teste contra o personagem é por distância de
+ * Chebyshev, que é a métrica exata para uma caixa: um teste por raio erraria nas
+ * diagonais, justamente onde o corredor é mais apertado.
  *
- * 1) FOLGA POR CHEBYSHEV, não por raio. O personagem é uma CAIXA quadrada: o
- *    canto dela está a 25·√2 = 35,4% de raio. Testar "raio > 35,4" seria
- *    conservador demais nos eixos e ainda assim errado nas diagonais. Testar a
- *    distância de Chebyshev (max(|dx|,|dy|) > 25 + folga) é exato — e de quebra
- *    abre o campo: uma estrela às 12h pode chegar a 27% de raio, uma a 45° é
- *    empurrada para 40%. Isso dá DUAS profundidades reais em vez de uma fileira.
+ * INSTANTE — `ignite` é a fração de LU.arc.dur em que a ponta do arco cruza
+ * aquela estrela. Como a ponta viaja com EASE_TRAVEL, desfazemos o easing com a
+ * bezier inversa.
  *
- * 2) IGNIÇÃO POR ÂNGULO, não por projeção horizontal linear no tempo. A cabeça
- *    do arco no instante t está no ângulo φ = 180 ± 180·easeTravel(t). Sincronizar
- *    pelo ângulo — e desfazer o easing com a bezier inversa — faz o arco acender
- *    cada estrela EXATAMENTE ao passar por ela. Erro medido: 0,000000 grau.
+ * NUM CÍRCULO o comprimento de arco é proporcional ao ângulo, então a fração do
+ * caminho é o próprio ângulo normalizado. A tabela de integração numérica que
+ * existia aqui só era necessária enquanto o arco era uma ELIPSE — onde as duas
+ * grandezas divergem. Com a curvatura constante ela virou peso morto e saiu.
  */
-export const LU_STARS = Array.from({ length: 28 }, (_, i) => {
-  const deg = (i * 137.508) % 360; // ângulo áureo: espalha sem agrupar
-  const rad = (deg * Math.PI) / 180;
-  const t = (i * PHI) % 1; // Weyl: variação estável e reproduzível
+export const LU_STARS = Array.from({ length: 26 }, (_, i) => {
+  // espalha ao longo do arco com deslocamento áureo, para não virar um colar de
+  // contas perfeitamente regular
+  const base = (i + 0.5) / 26;
+  const jitter = (((i * PHI) % 1) - 0.5) * (0.85 / 26);
+  const p = Math.min(0.975, Math.max(0.025, base + jitter));
+  const t = Math.PI + Math.PI * p;
+
   const u = (i * PHI * 3) % 1;
-  const c = Math.cos(rad);
-  const s = Math.sin(rad);
+  const size = 2.0 + u * 1.4; // 2,0%–3,4% da largura do palco
+  const half = size * 2; // meia-extensão em unidades do viewBox
 
-  const size = 2.4 + u * 1.8; // 2,4%–4,2% do palco → 6–16 px
-  const half = size / 2;
-  const rMin = (CHAR_HALF + GAP + half) / Math.max(Math.abs(c), Math.abs(s));
-  const rMax = ARC_INNER - GAP - half;
-  const r = rMin + t * Math.max(0, rMax - rMin);
+  // maior escala que ainda deixa a estrela inteira do lado de dentro do traço
+  const sMax = 1 - (LU_ARC.strokeHalf + GAP + half) / LU_ARC.r;
 
-  // fração do PERCURSO em que a cabeça cruza o ângulo desta estrela:
-  // metade de cima (0–180°) → a cabeça de cima chega vindo das 9h;
-  // metade de baixo (180–360°) → a cabeça de baixo, simetricamente.
-  const p = deg <= 180 ? 1 - deg / 180 : (deg - 180) / 180;
+  let sHi: number | null = null;
+  let sLo = sMax;
+  for (let s = sMax; s > 0.3; s -= 0.002) {
+    const [x, y] = arcPoint(t, s);
+    const clearChar =
+      Math.max(Math.abs(x - LU_ARC.cx), Math.abs(y - CHAR_CY)) - half > CHAR_HALF + GAP;
+    // nunca abaixo da base: ali é o chão em que o personagem pisa
+    const aboveFloor = y <= LU_ARC.cy + 0.5;
+    if (clearChar && aboveFloor) {
+      if (sHi === null) sHi = s;
+      sLo = s;
+    } else if (sHi !== null) break;
+  }
+  const s = sHi === null ? sMax : sLo + ((i * PHI * 7) % 1) * (sHi - sLo);
+  const [x, y] = arcPoint(t, s);
 
   return {
-    left: 50 + c * r,
-    top: 50 - s * r,
+    /** % da LARGURA do palco. */
+    left: (x / LU_STAGE.w) * 100,
+    /** % da ALTURA do palco — o palco não é quadrado, então os dois divisores diferem. */
+    top: (y / LU_STAGE.h) * 100,
     size,
     /** fração de LU.arc.dur em que esta estrela acende. */
     ignite: EASE_TRAVEL_INV(p),
     cycle: 1.5 + u * 0.9,
-    pause: 0.4 + t * 1.3,
+    pause: 0.4 + ((i * PHI) % 1) * 1.3,
     tone: i % 5 === 0 ? "#F8FAFC" : i % 3 === 0 ? "#C084FC" : "#A855F7",
-    /** fatiamento por CSS: 18 no celular, 23 em sm, 28 em lg. Sem `window`. */
-    tier: i < 18 ? "" : i < 23 ? "hidden sm:block" : "hidden lg:block",
+    /**
+     * Fatiamento responsivo por CSS (sem ler `window`). O corte é por RESTO, e
+     * não por faixa de índice: as estrelas estão ordenadas AO LONGO do arco,
+     * então esconder um bloco contíguo deixaria um trecho às escuras.
+     */
+    tier: i % 7 === 3 ? "hidden lg:block" : i % 7 === 5 ? "hidden sm:block" : "",
   };
 });
-
-/** raio do traço, exportado para quem precisar conferir a geometria. */
-export const LU_ARC_R = ARC_R;

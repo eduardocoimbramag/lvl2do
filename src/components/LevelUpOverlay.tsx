@@ -15,15 +15,22 @@ import {
 import { ModalPortal } from "./ModalPortal";
 import { Button } from "./Button";
 import { EASE_HOUSE, EASE_TRAVEL } from "@/lib/animations";
-import { LU, LU_SETTLE_MS, LU_STARS, levelUpTimings } from "@/lib/levelUpChoreography";
+import {
+  LU,
+  LU_ARC,
+  LU_ARC_PATH,
+  LU_CHAR_BOTTOM_PCT,
+  LU_CHAR_PCT,
+  LU_CHIP_TOP_PCT,
+  LU_SETTLE_MS,
+  LU_STAGE,
+  LU_STARS,
+  levelUpTimings,
+} from "@/lib/levelUpChoreography";
+import { LEVEL_UP_GOLD } from "@/lib/xp-system";
+import { GoldCoinIcon } from "./RewardIcons";
 import { lockAppShell } from "@/lib/overlayLock";
 import { cn } from "@/lib/utils";
-
-/** Duas metades espelhadas do MESMO ponto às 9h, chegando juntas às 3h (r=180). */
-const RING = {
-  top: "M 20 200 A 180 180 0 0 1 380 200",
-  bot: "M 20 200 A 180 180 0 0 0 380 200",
-};
 
 const rootVariants: Variants = {
   hidden: { opacity: 0 },
@@ -77,8 +84,6 @@ interface LevelUpOverlayProps {
   crossedTier: boolean;
   /** rótulo da faixa desbloqueada, ex.: "Nível 25". */
   tierLabel: string | null;
-  /** próxima faixa ainda não alcançada, para o "por que isso importa". */
-  nextTierLevel: number | null;
   /** true = pré-visualização da Área de ADM (marca a tela e não grava nada). */
   preview: boolean;
   /** ÚNICO caminho de fechamento: "Confirmar", Esc e voltar do Android. */
@@ -106,7 +111,6 @@ export function LevelUpOverlay({
   prevArtSrc,
   crossedTier,
   tierLabel,
-  nextTierLevel,
   preview,
   onConfirm,
 }: LevelUpOverlayProps) {
@@ -246,8 +250,11 @@ export function LevelUpOverlay({
   }
 
   const heading = "Você subiu de nível";
+  // O lugar de destaque agora é da RECOMPENSA (as moedas). Esta linha virou o
+  // contexto discreto embaixo dela — e some inteira na simulação, onde não há
+  // XP nem progresso reais para relatar.
   const primaryLine = preview
-    ? `Pré-visualização · Nível ${fromLevel} → ${level}`
+    ? ""
     : levelDelta > 1
       ? `Nível ${fromLevel} → ${level} · +${levelDelta} níveis`
       : xp > 0
@@ -256,19 +263,18 @@ export function LevelUpOverlay({
           ? `Faltam ${xpToNext} XP para o Nível ${level + 1}`
           : "";
 
-  // UMA segunda linha, no máximo. Prioridade: desbloqueio > aviso de teto > dica.
+  /** Ouro creditado: 50 por nível ganho. É a recompensa, então tem peso visual. */
+  const goldReward = LEVEL_UP_GOLD * levelDelta;
+
+  // UMA segunda linha, no máximo, e só quando há algo REAL a dizer. A dica
+  // "Próxima aparência no Nível N" saiu: numa tela de comemoração, apontar para
+  // o que a pessoa ainda NÃO tem rouba o momento do que ela acabou de ganhar.
   const secondaryLine = crossedTier
     ? `Nova aparência desbloqueada${tierLabel ? ` · ${tierLabel}` : ""}`
     : wasCapped || reachedDailyLimit
       ? "Limite diário atingido — parte do XP não foi creditada."
-      : nextTierLevel
-        ? `Próxima aparência no Nível ${nextTierLevel}`
-        : "";
-  const secondaryTone = crossedTier
-    ? "text-brand-light"
-    : wasCapped || reachedDailyLimit
-      ? "text-amber-300/90"
-      : "text-muted";
+      : "";
+  const secondaryTone = crossedTier ? "text-brand-light" : "text-amber-300/90";
 
   return (
     <ModalPortal>
@@ -286,11 +292,15 @@ export function LevelUpOverlay({
             /* z-[80]: acima do StoryViewer (70), do popover (60) e dos modais (50).
                `h-[100dvh]` e não `inset-0`: no iOS o `fixed` ancora no layout
                viewport e o "Confirmar" nasceria por baixo da barra do Safari.
-               bg-ink/55 e NÃO /80: o pedido é "blur em todo o fundo"; a 0,80 só
-               20% do backdrop desfocado atravessa e o efeito vira preto chapado.
+               DESFOQUE LEVE (4px / 8px), e não 16/40 como antes: a 40px o fundo
+               virava uma chapa cinza e a tela ficava pesada. O que garante o
+               contraste do texto é o SCRIM (bg-ink/55), não o desfoque — então
+               dá para aliviar o desfoque sem perder legibilidade. O fundo volta
+               a ser reconhecível atrás da cena, que é o efeito de vidro que se
+               quer, em vez de um apagão.
                ESTE nó não rola — o scroller é o filho, senão a vinheta `inset-0`
                se dimensionaria pela caixa de scroll e deixaria de cobrir a tela. */
-            className="fixed inset-x-0 top-0 z-[80] h-[100dvh] bg-ink/55 outline-none backdrop-blur-lg sm:bg-ink/60 sm:backdrop-blur-2xl"
+            className="fixed inset-x-0 top-0 z-[80] h-[100dvh] bg-ink/55 outline-none backdrop-blur-sm sm:bg-ink/60 sm:backdrop-blur"
             variants={rootVariants}
             custom={T.exit}
             initial="hidden"
@@ -298,10 +308,11 @@ export function LevelUpOverlay({
             exit="gone"
             transition={{ duration: T.backdrop.dur, ease: EASE_HOUSE }}
           >
-            {/* vinheta: teto em 0,35 para não anular o desfoque nos cantos */}
+            {/* vinheta: 0,22 (era 0,35). Só encosta os cantos — com o desfoque
+                leve, uma vinheta forte era o que restava de "pesado". */}
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(64%_64%_at_50%_46%,transparent_0%,rgba(5,5,9,0.35)_100%)]"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(68%_68%_at_50%_46%,transparent_0%,rgba(5,5,9,0.22)_100%)]"
             />
 
             {/* GRID de 3 linhas: [1fr] [palco] [1fr]. As duas linhas `1fr`
@@ -318,12 +329,12 @@ export function LevelUpOverlay({
               <motion.div
                 variants={contentVariants}
                 custom={T.exit}
-                className="lu-stage relative aspect-square"
+                className="lu-stage relative"
               >
                 {/* halo largo ESTÁTICO: só `opacity` anima, nunca re-rasteriza */}
                 <motion.div
                   aria-hidden
-                  className="pointer-events-none absolute inset-[-12%] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.26)_0%,transparent_62%)]"
+                  className="pointer-events-none absolute inset-[-10%] bg-[radial-gradient(circle_at_50%_50%,rgba(168,85,247,0.2)_0%,transparent_64%)]"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.6, delay: T.arc.at }}
@@ -386,7 +397,10 @@ export function LevelUpOverlay({
                     Pendurá-las num item de grid `place-items-center` daria
                     fit-content nos dois eixos e o personagem renderizaria
                     0×0: a tela abriria sem o requisito nº 1. */}
-                <div className="absolute left-1/2 top-1/2 h-1/2 w-1/2 -translate-x-1/2 -translate-y-1/2">
+                <div
+                  className="absolute left-1/2 aspect-square -translate-x-1/2"
+                  style={{ width: `${LU_CHAR_PCT}%`, bottom: `${LU_CHAR_BOTTOM_PCT}%` }}
+                >
                   {/* três wrappers: entrada, respiração e pulso NÃO podem
                       compartilhar elemento — as transitions brigariam. */}
                   <motion.div
@@ -512,8 +526,15 @@ export function LevelUpOverlay({
                     uma medalha presa no arco — assim ele ganha peso sem
                     custar uma linha de altura ao chrome, que é o orçamento
                     que decide o tamanho do personagem. */}
+                {/* CHAPA DE NÍVEL — no vão sob o arco, entre as duas pernas dele.
+                    A centragem vem de `x: "-50%"` no `style` do framer, e NÃO da
+                    classe `-translate-x-1/2`: assim que o framer anima `scale`,
+                    ele escreve `transform` inline e SOBRESCREVE o translate da
+                    classe — a chapa nascia deslocada meia-largura para a direita.
+                    As estrelas sempre estiveram certas porque já usavam `x`/`y`. */}
                 <motion.div
-                  className="absolute left-1/2 top-[95%] z-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-brand/45 bg-ink px-4 py-1.5 shadow-glow"
+                  className="absolute left-1/2 z-10 rounded-full border border-brand/45 bg-ink px-4 py-1.5 shadow-glow"
+                  style={{ top: `${LU_CHIP_TOP_PCT}%`, x: "-50%", y: "-50%" }}
                   initial={{ opacity: 0, scale: reduce ? 1 : 0.7 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: T.chip.dur, delay: T.chip.at, ease: EASE_HOUSE }}
@@ -531,7 +552,7 @@ export function LevelUpOverlay({
               <motion.div
                 variants={contentVariants}
                 custom={T.exit}
-                className="mt-4 flex w-full max-w-md flex-col items-center self-start text-center [@media(max-height:520px)]:mt-2"
+                className="mt-3 flex w-full max-w-md flex-col items-center self-start text-center [@media(max-height:520px)]:mt-1.5"
               >
                 <h2
                   id="levelup-title"
@@ -556,6 +577,33 @@ export function LevelUpOverlay({
                     {heading}
                   </motion.span>
                 </h2>
+
+                {/* RECOMPENSA — o que o level up entrega. Fica logo abaixo do
+                    título e acima do contexto, porque é a informação com maior
+                    valor para quem acabou de subir. `aria-label` no contêiner e
+                    `aria-hidden` nas partes: o leitor de tela ouve uma frase
+                    inteira ("Recompensa: 50 moedas de ouro") em vez de "mais
+                    cinquenta" solto ao lado de um ícone sem nome. */}
+                <motion.div
+                  role="img"
+                  aria-label={`Recompensa: ${goldReward} moedas de ouro`}
+                  className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-300/[0.08] px-3.5 py-1.5"
+                  initial={{ opacity: 0, scale: reduce ? 1 : 0.8, y: reduce ? 0 : 4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{
+                    duration: T.chip.dur,
+                    delay: T.lines.at,
+                    ease: EASE_HOUSE,
+                  }}
+                >
+                  <GoldCoinIcon size={18} className="shrink-0 text-amber-300" />
+                  <span
+                    aria-hidden
+                    className="font-display text-base font-bold tabular-nums text-amber-200 sm:text-lg"
+                  >
+                    +{goldReward}
+                  </span>
+                </motion.div>
 
                 <motion.div
                   id="levelup-desc"
@@ -613,11 +661,11 @@ export function LevelUpOverlay({
  * Arco de glow na cor da barra de XP (bg-brand-gradient: #8B5CF6 → #A855F7 →
  * #C084FC, os três hex exatos de tailwind.config.ts).
  *
- * DUAS metades partindo do MESMO ponto às 9h (uma por cima, outra por baixo) e
- * chegando juntas às 3h. Com `strokeLinecap="round"` as pontas se fundem num
- * ponto na largada e se reencontram num ponto na chegada: durante 840 ms é um
- * arco abrindo como um abraço da esquerda para a direita — o pedido literal —
- * e no fim é um anel fechado, sem costura.
+ * ARCO ABERTO, um caminho SÓ: nasce na altura do pé do personagem à esquerda,
+ * sobe por cima da cabeça e desce até a altura do pé à direita. Com um único
+ * path, `pathLength` de 0 a 1 já É a varredura da esquerda para a direita —
+ * sem duas metades para sincronizar. O vão de baixo fica aberto de propósito:
+ * é ele que faz a cena ler como um portal em que o personagem está de pé.
  *
  * ZERO `filter`: `pathLength` é implementado pelo framer como
  * `stroke-dasharray`/`dashoffset` por frame, ou seja, repaint. Um `filter` no
@@ -643,7 +691,7 @@ function Arc({
 
   return (
     <svg
-      viewBox="0 0 400 400"
+      viewBox={`0 0 ${LU_STAGE.w} ${LU_STAGE.h}`}
       aria-hidden
       className="absolute inset-0 h-full w-full overflow-visible"
     >
@@ -655,10 +703,10 @@ function Arc({
         <linearGradient
           id={`${uid}-arc`}
           gradientUnits="userSpaceOnUse"
-          x1="20"
-          y1="200"
-          x2="380"
-          y2="200"
+          x1={LU_ARC.cx - LU_ARC.r}
+          y1={LU_ARC.cy}
+          x2={LU_ARC.cx + LU_ARC.r}
+          y2={LU_ARC.cy}
         >
           <stop offset="0%" stopColor="#8B5CF6" />
           <stop offset="50%" stopColor="#A855F7" />
@@ -678,22 +726,19 @@ function Arc({
         transition={{ duration: 0.15, delay: reduce ? 0 : Math.max(0, at - 0.15) }}
       >
         {/* bloom: traço largo translúcido, MESMO pathLength, SEM filter */}
-        <motion.path d={RING.top} strokeWidth={18} opacity={0.2} style={{ pathLength: progress }} />
-        <motion.path d={RING.bot} strokeWidth={18} opacity={0.2} style={{ pathLength: progress }} />
+        <motion.path d={LU_ARC_PATH} strokeWidth={18} opacity={0.2} style={{ pathLength: progress }} />
         {/* traço nítido */}
-        <motion.path d={RING.top} strokeWidth={6} style={{ pathLength: progress }} />
-        <motion.path d={RING.bot} strokeWidth={6} style={{ pathLength: progress }} />
+        <motion.path d={LU_ARC_PATH} strokeWidth={6} style={{ pathLength: progress }} />
 
-        {!reduce &&
-          [RING.top, RING.bot].map((d, k) => (
-            <motion.path
-              key={k}
-              d={d}
-              stroke="#F8FAFC"
-              strokeWidth={7}
-              style={{ pathLength: 0.04, pathOffset: headOffset, opacity: headOpacity }}
-            />
-          ))}
+        {/* cabeça-cometa: um dash curto de 4% perseguindo a ponta da varredura */}
+        {!reduce && (
+          <motion.path
+            d={LU_ARC_PATH}
+            stroke="#F8FAFC"
+            strokeWidth={7}
+            style={{ pathLength: 0.04, pathOffset: headOffset, opacity: headOpacity }}
+          />
+        )}
       </motion.g>
     </svg>
   );

@@ -212,5 +212,27 @@ export function useMetrics({ userId, missions, bestStreak }: UseMetricsArgs) {
     };
   }, [events, missions, bestStreak]);
 
-  return { byPeriod, loading, error };
+  /**
+   * Radiografia da busca, para o painel de diagnóstico da Área de ADM.
+   *
+   * Existe porque três rodadas de investigação esbarraram na mesma parede: a
+   * tela mostra "0" tanto quando não há dado quanto quando o dado não chegou, e
+   * as duas situações são indistinguíveis de fora. O banco já foi auditado e
+   * está correto (dados, schema, GRANT e policy de RLS conferidos um a um), então
+   * o que falta saber é o que o NAVEGADOR recebeu — sem depender de DevTools.
+   */
+  const debug = useMemo(() => {
+    const dias = events.map(dayKeyOf).sort();
+    return {
+      userId,
+      loading,
+      error,
+      total: events.length,
+      primeiro: dias[0] ?? null,
+      ultimo: dias[dias.length - 1] ?? null,
+      concluidas: events.filter(isCompletion).length,
+    };
+  }, [events, userId, loading, error]);
+
+  return { byPeriod, loading, error, debug };
 }
