@@ -116,14 +116,27 @@ export type ReferralRow = {
 };
 
 /** Evento de XP (log append-only) — base do histórico de métricas. */
+/**
+ * Linha de `xp_events` — log append-only de ganho/devolução de XP.
+ *
+ * Este tipo espelha o schema REAL da tabela, que é o que as RPCs
+ * complete_mission_atomic/revert_mission_atomic escrevem. A versão anterior
+ * declarava `kind`, `category` e `created_at`, colunas que NUNCA existiram no
+ * banco: a leitura falhava com 42703 e a aba Métricas ficava zerada.
+ */
 export type XpEventRow = {
   id: number;
   user_id: string;
-  kind: "gain" | "revert";
-  amount: number;
-  category: string | null;
   mission_id: string | null;
-  created_at: string;
+  /** creditado (>0), devolvido (<0), ou 0 quando o teto diário zerou o crédito. */
+  amount: number;
+  /** 'mission_done' | 'mission_reverted'. */
+  reason: string | null;
+  /** true quando o teto de 300/dia reduziu (ou zerou) o crédito. */
+  daily_cap_applied: boolean | null;
+  /** dia LOCAL do evento ("YYYY-MM-DD") — é a chave canônica das métricas. */
+  happened_on: string;
+  happened_at: string;
 };
 
 /* -------------------------------------------------------------------------- */

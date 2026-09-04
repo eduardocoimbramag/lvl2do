@@ -73,6 +73,12 @@ function buildView(fb: StatsFeedback): {
   celebrate: boolean;
 } {
   // Level up tem prioridade visual.
+  //
+  // Subida de nível por GANHO não chega mais aqui: o provider a filtra em tempo
+  // de render (toastFeedback) e a roteia para o LevelUpOverlay. Este ramo segue
+  // alcançável — e não é código morto — por dois caminhos: revert que devolve
+  // delta positivo (estado local atrasado em relação ao servidor) e queda de
+  // nível por inatividade, que continua inteiramente no toast.
   if (fb.levelDelta > 0) {
     return {
       title: "Level Up! 🎉",

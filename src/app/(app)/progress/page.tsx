@@ -10,6 +10,7 @@ import { CategoryBadge } from "@/components/CategoryBadge";
 import { AnimatedGrid } from "@/components/Section";
 import { XpAreaChart } from "@/components/charts/XpAreaChart";
 import { MetricsPeriodToggle } from "@/components/MetricsPeriodToggle";
+import { useAuth } from "@/components/AuthProvider";
 import { useAppStats, useAppMissions } from "@/hooks/AppStateProvider";
 import { useMetrics } from "@/hooks/useMetrics";
 import { strongestOf, weakestOf, type MetricsPeriod } from "@/data/metricsData";
@@ -26,9 +27,14 @@ export default function ProgressPage() {
 
   // dados reais: XP/missões ao longo do tempo (xp_events) + conclusão por
   // categoria (snapshot das missões do usuário).
+  const { user } = useAuth();
   const { bestStreak } = useAppStats();
   const { allMissions } = useAppMissions();
-  const { byPeriod } = useMetrics({ missions: allMissions, bestStreak });
+  const { byPeriod, error } = useMetrics({
+    userId: user?.id ?? null,
+    missions: allMissions,
+    bestStreak,
+  });
 
   const data = byPeriod[period];
   const strongest = strongestOf(data.categories);
@@ -43,6 +49,16 @@ export default function ProgressPage() {
         subtitle="Acompanhe sua evolução ao longo do tempo."
         action={<MetricsPeriodToggle value={period} onChange={setPeriod} />}
       />
+
+      {error && (
+        <p
+          role="alert"
+          className="mb-5 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200"
+        >
+          Não foi possível carregar seu histórico de XP. Os números por período podem estar
+          incompletos — recarregue a página para tentar de novo.
+        </p>
+      )}
 
       {/* stats principais — reagem ao período */}
       <AnimatedGrid key={period} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

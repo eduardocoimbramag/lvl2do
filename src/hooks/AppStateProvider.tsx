@@ -1,10 +1,21 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { emitBossHit } from "@/lib/bossEvents";
 import { useAuth } from "@/components/AuthProvider";
 import { updateMyProfile } from "@/lib/db/profiles";
 import { daysBetweenDateKeys, DAILY_XP_LIMIT } from "@/lib/xp-system";
+import { SKIN_TIERS } from "@/data/characterClasses";
+import type { StatsFeedback } from "./useUserStats";
 import { useUserStats } from "./useUserStats";
 import { useMissions } from "./useMissions";
 import { useStreak } from "./useStreak";
@@ -22,6 +33,47 @@ type AlarmsApi = ReturnType<typeof useAlarms> & {
   toggleEnabledOff: (id: string) => void;
 };
 
+/**
+ * Celebração de subida de nível — estado PRÓPRIO, copiado do feedback.
+ *
+ * Não é uma view do `feedback`: o toast auto-dispensa o feedback em 3,2 s e o
+ * overlay só pode fechar no "Confirmar". Copiar é o que desacopla os dois
+ * ciclos de vida.
+ */
+export type LevelUpCelebration = {
+  /** nível de PARTIDA — base da arte antiga e do cálculo do delta. */
+  fromLevel: number;
+  /** nível ALCANÇADO. */
+  level: number;
+  /** XP creditado no evento (0 em simulação/recuperação). */
+  xp: number;
+  wasCapped: boolean;
+  reachedDailyLimit: boolean;
+  /** dano ao chefe no mesmo evento — decide se esperamos a coreografia. */
+  bossDamage: number;
+  /** "simulation" = botão de ADM; "recovered" = nível subiu com o app fechado. */
+  source: "mission" | "simulation" | "recovered";
+};
+
+/** Marca, por usuário e por aparelho, o último nível já comemorado. */
+const CELEBRATED_KEY = "lvl2do.levelUp.celebrated.v1";
+function readCelebrated(userId: string): number | null {
+  try {
+    const v = window.localStorage.getItem(`${CELEBRATED_KEY}:${userId}`);
+    const n = v == null ? NaN : Number(v);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+function writeCelebrated(userId: string, level: number) {
+  try {
+    window.localStorage.setItem(`${CELEBRATED_KEY}:${userId}`, String(level));
+  } catch {
+    /* storage bloqueado: a sessão atual ainda funciona, só não sobrevive a reload */
+  }
+}
+
 type AppState = ReturnType<typeof useUserStats> & {
   /** chave do dia local ("YYYY-MM-DD") como estado — muda na virada (day tick). */
   todayKey: string;
@@ -32,6 +84,12 @@ type AppState = ReturnType<typeof useUserStats> & {
   missionsApi: ReturnType<typeof useMissions>;
   alarmsApi: AlarmsApi;
   notificationsApi: ReturnType<typeof useNotifications>;
+  /** feedback filtrado: NUNCA contém subida de nível (essa vai para o overlay). */
+  toastFeedback: StatsFeedback | null;
+  levelUp: LevelUpCelebration | null;
+  dismissLevelUp: () => void;
+  /** só a Área de ADM chama — pré-visualização, zero efeito no XP. */
+  simulateLevelUp: (withNewSkin?: boolean) => void;
 };
 
 const AppStateContext = createContext<AppState | null>(null);
@@ -175,6 +233,117 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const showFeedback = userStats.showFeedback;
   const adoptStreak = streakApi.adoptServerSnapshot;
 
+  /* --------------------- celebração de subida de nível -------------------- */
+
+  const [levelUp, setLevelUp] = useState<LevelUpCelebration | null>(null);
+  /** dano do MESMO evento que gerou o feedback — define o atraso de entrada. */
+  const lastBossDamage = useRef(0);
+  const recovered = useRef(false);
+
+  const rawFeedback = userStats.feedback;
+  const dismissFeedback = userStats.dismissFeedback;
+  const currentLevel = userStats.stats.level;
+
+  /**
+   * Feedback que o TOAST enxerga. Filtro em tempo de RENDER, não em efeito:
+   * num efeito o toast já teria renderizado "Level Up! 🎉" uma vez e o
+   * AnimatePresence tocaria entrada + saída — o piscar que o overlay existe
+   * para evitar.
+   */
+  const toastFeedback: StatsFeedback | null =
+    rawFeedback && rawFeedback.kind === "gain" && rawFeedback.levelDelta > 0 ? null : rawFeedback;
+
+  /**
+   * Roteia o level up para o overlay e limpa o feedback bruto.
+   *
+   * `kind === "gain"` de propósito: uma REVERSÃO pode devolver delta positivo
+   * quando o estado local estava atrasado em relação ao servidor — desfazer
+   * missão não é motivo para tela de comemoração. E `kind === "loss"`
+   * (queda de nível por inatividade) continua inteiramente no XpToast.
+   */
+  useEffect(() => {
+    if (!rawFeedback || rawFeedback.kind !== "gain" || rawFeedback.levelDelta <= 0) return;
+    const { level, levelDelta, xp, wasCapped, reachedDailyLimit } = rawFeedback;
+    setLevelUp((cur) =>
+      // Já havia celebração REAL no ar (dois ganhos em sequência): mantém o
+      // nível de PARTIDA original e soma o XP, em vez de sobrescrever.
+      cur && cur.source !== "simulation"
+        ? {
+            ...cur,
+            level,
+            xp: cur.xp + xp,
+            wasCapped: cur.wasCapped || !!wasCapped,
+            reachedDailyLimit: !!reachedDailyLimit,
+          }
+        : {
+            fromLevel: level - levelDelta,
+            level,
+            xp,
+            wasCapped: !!wasCapped,
+            reachedDailyLimit: !!reachedDailyLimit,
+            bossDamage: lastBossDamage.current,
+            source: "mission",
+          },
+    );
+    dismissFeedback();
+  }, [rawFeedback, dismissFeedback]);
+
+  /**
+   * RECUPERAÇÃO. A celebração é a recompensa central do produto e sobe uma vez
+   * a cada 3+ dias — não pode se perder num reload, num crash ou por ter sido
+   * ganha em outro aparelho. Na primeira vez que vemos um usuário, gravamos o
+   * nível em silêncio (senão todo mundo comemoraria no próximo login).
+   */
+  useEffect(() => {
+    if (!seedReady || !userId || recovered.current) return;
+    recovered.current = true; // refs sobrevivem ao duplo-mount do StrictMode
+    const seen = readCelebrated(userId);
+    if (seen == null || currentLevel <= seen) {
+      writeCelebrated(userId, currentLevel);
+      return;
+    }
+    setLevelUp({
+      fromLevel: seen,
+      level: currentLevel,
+      xp: 0,
+      wasCapped: false,
+      reachedDailyLimit: false,
+      bossDamage: 0,
+      source: "recovered",
+    });
+  }, [seedReady, userId, currentLevel]);
+
+  const dismissLevelUp = useCallback(() => {
+    // simulação NUNCA grava: marcar o nível N+1 como comemorado suprimiria a
+    // celebração de verdade quando ela chegasse.
+    if (levelUp && userId && levelUp.source !== "simulation") {
+      writeCelebrated(userId, levelUp.level);
+    }
+    setLevelUp(null);
+  }, [levelUp, userId]);
+
+  /**
+   * Pré-visualização da animação (Área de ADM). NÃO credita XP, NÃO escreve no
+   * banco, NÃO mexe em `stats`, NÃO chama showFeedback — só liga o overlay.
+   */
+  const simulateLevelUp = useCallback(
+    (withNewSkin = false) => {
+      const target = withNewSkin
+        ? (SKIN_TIERS.find((t) => t > currentLevel) ?? currentLevel + 1)
+        : currentLevel + 1;
+      setLevelUp({
+        fromLevel: currentLevel,
+        level: target,
+        xp: 0,
+        wasCapped: false,
+        reachedDailyLimit: false,
+        bossDamage: 0,
+        source: "simulation",
+      });
+    },
+    [currentLevel],
+  );
+
   /**
    * Missões — conclusão/reversão via RPC ATÔMICA no servidor (XP + streak +
    * xp_events na mesma transação). O cliente apenas ADOTA o profile retornado
@@ -191,6 +360,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         profile.last_mission_completed_at ?? null,
       );
       if (kind === "complete") {
+        // guardado ANTES do showFeedback: o efeito que roteia o level up lê
+        // este ref para saber se precisa esperar a coreografia do chefe.
+        lastBossDamage.current = bossDamage ?? 0;
         // O trigger de dano roda na MESMA transação da RPC, então o estado que
         // chega aqui já é o pós-golpe. Mandamos o estado inteiro (e o dano) em
         // vez de só a categoria: assim quem ouve não precisa adivinhar se houve
@@ -235,6 +407,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     missionsApi,
     alarmsApi,
     notificationsApi,
+    toastFeedback,
+    levelUp,
+    dismissLevelUp,
+    simulateLevelUp,
   };
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

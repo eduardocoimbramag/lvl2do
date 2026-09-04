@@ -37,19 +37,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
   const initialized = useRef(false);
+  /** uid do carregamento mais recente — descarta respostas fora de ordem. */
+  const wantedUidRef = useRef<string | null>(null);
 
   const loadProfile = useCallback(
     async (uid: string | null) => {
+      wantedUidRef.current = uid;
       if (!uid) {
         setProfile(null);
         return;
       }
       const { data, error } = await supabase.from("profiles").select("*").eq("id", uid).single();
-      // Falha de rede não pode DERRUBAR um profile já carregado: com profile
-      // null, todo consumidor volta a ver 0 de XP — e antes da correção isso
-      // ainda era gravado de volta no banco. Mantém o último bom.
+
+      // Resposta obsoleta: outro carregamento (troca de conta) começou depois
+      // desta e é ele quem manda. Aplicar isto aqui mostraria o perfil de um
+      // usuário dentro da sessão de outro.
+      if (wantedUidRef.current !== uid) return;
+
       if (error) {
-        console.warn("[AuthProvider] falha ao carregar o profile; mantendo o anterior:", error);
+        // Falha de rede não pode DERRUBAR um profile bom: com profile null,
+        // todo consumidor volta a ver 0 de XP. Mas só preservamos o que é
+        // DESTE usuário — na troca de conta, o perfil anterior tem que cair.
+        console.warn("[AuthProvider] falha ao carregar o profile:", error);
+        setProfile((prev) => (prev && prev.id === uid ? prev : null));
         return;
       }
       setProfile(data as ProfileRow);

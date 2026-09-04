@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus, Zap, ClipboardList } from "lucide-react";
+import { Plus, ClipboardList } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { MissionCard } from "@/components/MissionCard";
 import { NewMissionModal } from "@/components/NewMissionModal";
@@ -27,7 +27,6 @@ export default function MissionsPage() {
     addMission,
     updateMission,
     removeMission,
-    stats,
   } = useAppMissions();
   const todayKey = toISODate(new Date());
   const [modalOpen, setModalOpen] = useState(false);
@@ -58,13 +57,6 @@ export default function MissionsPage() {
           </Button>
         }
       />
-
-      {/* resumo rápido */}
-      <div className="mb-6 flex flex-wrap gap-3">
-        <Pill label="Total" value={stats.total} />
-        <Pill label="Concluídas" value={stats.done} tone="success" />
-        <Pill label="XP ganho" value={stats.xpEarned} icon />
-      </div>
 
       {/* 3 cards/colunas por categoria.
           onClickCapture arma a intenção de rolagem: o dano só chega 200–800ms
@@ -172,32 +164,5 @@ function CategoryColumn({
         )}
       </motion.div>
     </section>
-  );
-}
-
-function Pill({
-  label,
-  value,
-  tone,
-  icon,
-}: {
-  label: string;
-  value: number;
-  tone?: "success";
-  icon?: boolean;
-}) {
-  return (
-    <div className="inline-flex items-center gap-2 rounded-xl border border-white/[0.06] bg-ink-card/60 px-4 py-2">
-      <span className="text-sm text-muted">{label}</span>
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 font-display text-sm font-bold",
-          tone === "success" ? "text-success" : "text-soft",
-        )}
-      >
-        {icon && <Zap size={13} className="text-brand-light" />}
-        {value}
-      </span>
-    </div>
   );
 }

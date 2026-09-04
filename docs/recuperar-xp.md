@@ -27,6 +27,9 @@ de novo. Recarregando, você garante que está rodando a versão corrigida.
 
 ## Passo 2 — Devolva o XP
 
+> **Antes:** não conclua missões enquanto roda os passos 2 e 3. Uma conclusão
+> no meio da execução pode não ser contada. Leva menos de um minuto.
+
 Abra o **SQL Editor** do Supabase, cole o bloco inteiro abaixo e clique em Run.
 
 ```sql

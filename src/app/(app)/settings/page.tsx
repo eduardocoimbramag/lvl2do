@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import { ShieldAlert, Trash2, Loader2, AlertTriangle, Ban, Play } from "lucide-react";
+import { ShieldAlert, Trash2, Loader2, AlertTriangle, Ban, Play, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/components/AuthProvider";
 import { isDevUser } from "@/lib/devAccess";
 import { resetMyAccount } from "@/lib/db/resetAccount";
 import { useAttackAnimationPref } from "@/hooks/useAttackAnimationPref";
+import { useAppStats } from "@/hooks/AppStateProvider";
+import { useCharacterSkin } from "@/hooks/useCharacterSkin";
+import { SKIN_TIERS } from "@/data/characterClasses";
+import { cn } from "@/lib/utils";
 
 /**
  * Configurações da conta.
@@ -87,12 +91,20 @@ function PreferencesSection() {
   );
 }
 
-/** Ferramentas de administração/dev (reset de conta). */
+/** Ferramentas de administração/dev (pré-visualização de level up + reset de conta). */
 function AdminArea() {
   // fluxo de confirmação: idle → confirming → resetting
   const [phase, setPhase] = useState<"idle" | "confirming" | "resetting">("idle");
   const [resetOnboarding, setResetOnboarding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { simulateLevelUp, stats } = useAppStats();
+  const { isAuto } = useCharacterSkin();
+  const [withNewSkin, setWithNewSkin] = useState(false);
+  const nextTier = SKIN_TIERS.find((t) => t > stats.level) ?? stats.level + 1;
+  // com a roupa fixada num tier antigo, resolveImage devolve a MESMA imagem
+  // nos dois níveis: a opção não entregaria nada e não pode ser oferecida.
+  const skinOptionAvailable = isAuto;
 
   async function handleReset() {
     setPhase("resetting");
@@ -112,6 +124,53 @@ function AdminArea() {
       <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-rose-300">
         <ShieldAlert size={13} /> Área de ADM
       </h2>
+      {/* Pré-visualização da animação de level up — ferramenta inofensiva, por
+          isso fica FORA da caixa vermelha de ações destrutivas.
+          Usa o overlay único montado no layout, então a simulação atravessa
+          exatamente o caminho de produção: mesmo mount point, mesmo contexto de
+          empilhamento, mesmo portão de exibição. */}
+      <div className="mb-3 rounded-2xl border border-brand/25 bg-brand/[0.06] p-5">
+        <div className="flex items-start gap-2.5">
+          <Sparkles size={16} className="mt-0.5 shrink-0 text-brand-light" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-soft">Simular level up</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              Abre a animação de subida de nível para conferência visual. Não credita XP, não
+              altera seu nível e não grava nada no banco.
+            </p>
+          </div>
+        </div>
+
+        <label
+          className={cn(
+            "mt-3 flex items-center gap-2 text-xs text-muted",
+            skinOptionAvailable ? "cursor-pointer" : "cursor-not-allowed opacity-50",
+          )}
+        >
+          <input
+            type="checkbox"
+            checked={withNewSkin && skinOptionAvailable}
+            disabled={!skinOptionAvailable}
+            onChange={(e) => setWithNewSkin(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-white/20 bg-ink accent-brand"
+          />
+          Simular também a troca de aparência (Nível {nextTier})
+        </label>
+        {!skinOptionAvailable && (
+          <p className="mt-1 text-xs text-muted/70">
+            Indisponível: sua roupa está fixada num nível anterior, então a arte não muda.
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={() => simulateLevelUp(withNewSkin && skinOptionAvailable)}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-brand/40 bg-brand/10 px-3 py-2 text-xs font-medium text-brand-light transition-colors hover:bg-brand/20"
+        >
+          <Sparkles size={14} /> Ver animação
+        </button>
+      </div>
+
       <div className="rounded-2xl border border-rose-400/30 bg-rose-400/[0.06] p-5">
         <div className="flex items-start gap-2.5">
           <AlertTriangle size={16} className="mt-0.5 shrink-0 text-rose-300" />

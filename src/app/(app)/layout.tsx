@@ -13,6 +13,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { BottomNav } from "@/components/BottomNav";
 import { AppTopbar } from "@/components/AppTopbar";
 import { GlobalXpToast } from "@/components/GlobalXpToast";
+import { GlobalLevelUp } from "@/components/GlobalLevelUp";
 import { ClassGuard } from "@/components/ClassGuard";
 import { AccessGuard } from "@/components/AccessGuard";
 import { AlarmScheduler } from "@/components/AlarmScheduler";
@@ -41,6 +42,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             {/* feedback de XP (ganho/perda) visível em qualquer página */}
             <GlobalXpToast />
+
+            {/* celebração de subida de nível — engole o toast no mesmo evento */}
+            <GlobalLevelUp />
 
             {/* motor de disparo dos alarmes (sem UI) — toca som + notifica no horário */}
             {/* pausado: sem isto, alarmes salvos continuariam tocando sem

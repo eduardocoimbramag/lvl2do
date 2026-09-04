@@ -90,3 +90,89 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ========================================================================== */
+/*  Celebração de subida de nível (LevelUpOverlay)                            */
+/* ========================================================================== */
+
+@layer utilities {
+  /* Uma expressão resolve tudo. O termo `100dvh − chrome` reserva o espaço do
+     bloco de texto NOS DOIS LADOS: é o preço da centragem literal. O grid
+     absorve erro de estimativa encolhendo a linha de cima.
+     Nunca `100vw`: no desktop com barra de rolagem `100vw > clientWidth` e
+     apareceria scroll horizontal justamente na tela que travou o scroll. */
+  .lu-stage {
+    width: max(168px, min(86vw, calc(100vh - 320px), 420px)); /* fallback sem dvh */
+    width: max(168px, min(86vw, calc(100dvh - 320px), 420px));
+  }
+  @media (min-width: 768px) {
+    .lu-stage {
+      width: max(168px, min(72vw, calc(100dvh - 340px), 480px));
+    }
+  }
+  /* celular deitado: o único caso em que o orçamento vertical estoura */
+  @media (max-height: 520px) {
+    .lu-stage {
+      width: max(140px, min(44vw, calc(100dvh - 130px), 300px));
+    }
+  }
+}
+
+@layer components {
+  /* mesmos três hex do bg-brand-gradient (tailwind.config.ts:39) — é a cor
+     da barra de XP e do arco, honrando "a mesma cor roxa" ao pé da letra.
+     A camada especular vive no MESMO elemento como um segundo background:
+     registro perfeito por construção, sem cópia sobreposta do texto. */
+  .lu-title {
+    background-image:
+      linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, 0.9) 50%, transparent 60%),
+      linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #c084fc 100%);
+    background-size:
+      260% 100%,
+      100% 100%;
+    background-position:
+      220% 0,
+      0 0;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+@keyframes lu-sheen {
+  from {
+    background-position:
+      220% 0,
+      0 0;
+  }
+  to {
+    background-position:
+      -120% 0,
+      0 0;
+  }
+}
+
+/* uma passada só, depois que o texto assentou. `both` deixa a camada
+   especular fora da caixa antes e depois — invisível nos dois extremos.
+   Em reduced motion a classe sequer é aplicada (ver LevelUpOverlay). */
+.lu-sheen {
+  animation: lu-sheen 0.9s cubic-bezier(0.4, 0, 0.2, 1) 1.98s 1 both;
+}
+
+/* `background-clip: text` + `color: transparent` fica INVISÍVEL em Windows
+   High Contrast, e só `-webkit-text-fill-color` não impede o Chrome de
+   continuar pintando o gradiente por trás — daí o `background-image: none`.
+   Correção app-wide: `.text-gradient` sofre do mesmo problema hoje. */
+@media (forced-colors: active) {
+  .text-gradient,
+  .lu-title {
+    background-image: none !important;
+    -webkit-text-fill-color: CanvasText;
+    color: CanvasText;
+  }
+  .lu-sheen {
+    animation: none !important;
+  }
+}

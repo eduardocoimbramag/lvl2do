@@ -104,23 +104,58 @@ update public.profiles p set
 -- aparência; XP, streak e cristais passam a ser exclusivos das RPCs
 -- (security definer, que ignoram grants do chamador).
 --
--- ANTES DE RODAR, saiba o que muda:
---   * persistStats e persistStreak (AppStateProvider) passarão a falhar — os
---     dois já têm .catch, então o app não quebra.
---   * Isso é o objetivo: complete_mission_atomic já grava total_xp, level,
---     daily_xp, current_streak, best_streak e last_mission_completed_at.
---   * O orçamento do dia se auto-cura: a RPC recalcula o usado a partir de
+-- ⚠️ NÃO DESCOMENTE AINDA. Uma revisão adversarial encontrou três armadilhas
+-- nesta parte; elas estão resolvidas no texto abaixo, mas a mudança precisa de
+-- um teste em staging antes de ir para produção. Detalhes:
+--
+-- (1) O GRANT PRECISA INCLUIR `id`.
+--     updateMyProfile usa .upsert({ id, ...patch }) (src/lib/db/profiles.ts:34).
+--     O PostgREST traduz upsert em INSERT ... ON CONFLICT (id) DO UPDATE SET,
+--     e a coluna do conflito entra na lista do SET — então o comando exige
+--     privilégio de UPDATE em `id`. Sem ele, TODA escrita falha com 42501,
+--     inclusive nickname e classe. O onboarding trava: o usuário novo nunca
+--     passa do ClassGuard, porque escolher a classe deixa de gravar.
+--     Conceder update(id) é inócuo: a policy profiles_update_own não declara
+--     WITH CHECK, então o USING (auth.uid() = id) também vale na escrita e
+--     ninguém consegue reatribuir o próprio id.
+--
+-- (2) O XP TEM UM SEGUNDO CAMINHO DE ESCRITA.
+--     Bloquear profiles não fecha xp_events: existe policy de INSERT para o
+--     cliente e o trigger apply_xp_event() soma em profiles.year_xp (o ranking
+--     anual). O revoke abaixo fecha isso. logXpEvent (src/lib/db/xpEvents.ts)
+--     não tem nenhum chamador, então nada do app quebra.
+--
+-- (3) O RESET DE CONTA (dev) PASSA A FALHAR EM SILÊNCIO.
+--     resetAccount.ts:86 faz .update(...) direto em profiles e não checa erro.
+--     Com a blindagem, o reset vira um no-op silencioso: a UI diz que resetou
+--     e nada acontece. Antes de aplicar, ou mova o reset para uma RPC security
+--     definer, ou faça-o checar o erro e falhar visivelmente.
+--
+-- O QUE MAIS MUDA (esperado e desejado):
+--   * persistStats e persistStreak passam a falhar — os dois já têm .catch.
+--     É o objetivo: complete_mission_atomic já grava total_xp, level, daily_xp,
+--     current_streak, best_streak e last_mission_completed_at.
+--   * O orçamento do dia se auto-cura: a RPC calcula o usado a partir de
 --     mission_completions, não de profiles.daily_xp.
---   * A migração de virada de dia deixa de persistir. Teste esse caminho antes
---     de considerar concluído.
+--   * A migração de virada de dia deixa de persistir. Teste esse caminho.
+--   * last_xp_loss_check_date fica não-gravável — lembre-se disto se um dia
+--     religar a perda por inatividade.
+--
+-- COMO TESTAR EM STAGING ANTES: com a blindagem aplicada, faça um cadastro
+-- novo e vá até o fim do onboarding (nickname + classe). Se travar, o `id`
+-- não foi concedido.
 --
 -- Descomente para aplicar:
 
 -- revoke update on public.profiles from authenticated;
 -- grant update (
+--   id,
 --   name, nickname, tag, avatar_url,
 --   character_class, character_skin, character_background
 -- ) on public.profiles to authenticated;
+
+-- fecha o caminho paralelo: xp_events → trigger → profiles.year_xp
+-- revoke insert, delete on public.xp_events from authenticated;
 
 -- ------------------------------------------------------------
 notify pgrst, 'reload schema';

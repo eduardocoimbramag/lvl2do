@@ -19,6 +19,29 @@ function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+/**
+ * Chave de dia do evento.
+ *
+ * `happened_on` JÁ é "YYYY-MM-DD" no dia local do usuário — é a chave canônica
+ * gravada pela RPC. Não passe por `new Date()`: "2026-09-01" é interpretado
+ * como meia-noite UTC, o que em America/Sao_Paulo (UTC-3) vira 31/08 às 21h, e
+ * a chave voltaria um dia inteiro.
+ */
+function dayKeyOf(e: XpEventRow): string {
+  return e.happened_on;
+}
+
+/** Chave de mês ("ano-mêsIndex", mês base 0) a partir do dia do evento. */
+function monthKeyOfEvent(e: XpEventRow): string {
+  const [y, m] = e.happened_on.split("-");
+  return `${Number(y)}-${Number(m) - 1}`;
+}
+
+/** Conclusão de missão (o contrário é 'mission_reverted', que devolve XP). */
+function isCompletion(e: XpEventRow): boolean {
+  return e.reason === "mission_done";
+}
+
 /** Snapshot de conclusão por categoria a partir das missões do usuário. */
 function categoriesFromMissions(missions: Mission[]): CategoryCompletion[] {
   return CATEGORIES.map((category) => {
@@ -40,7 +63,7 @@ function completionRateFromMissions(missions: Mission[]): number {
 function weeklyMetrics(events: XpEventRow[], todayKey: string, today: Date) {
   const byDay = new Map<string, number>();
   for (const e of events) {
-    const k = getLocalDateKey(new Date(e.created_at));
+    const k = dayKeyOf(e);
     byDay.set(k, (byDay.get(k) ?? 0) + e.amount);
   }
   const series: XpPoint[] = [];
@@ -50,7 +73,7 @@ function weeklyMetrics(events: XpEventRow[], todayKey: string, today: Date) {
     series.push({ label: WEEKDAY_SHORT[day.getDay()], xp: byDay.get(getLocalDateKey(day)) ?? 0 });
   }
   const inWindow = (e: XpEventRow) => {
-    const diff = daysBetweenDateKeys(getLocalDateKey(new Date(e.created_at)), todayKey);
+    const diff = daysBetweenDateKeys(dayKeyOf(e), todayKey);
     return diff >= 0 && diff <= 6;
   };
   return windowTotals(events, inWindow, series);
@@ -60,12 +83,12 @@ function weeklyMetrics(events: XpEventRow[], todayKey: string, today: Date) {
 function monthlyMetrics(events: XpEventRow[], todayKey: string) {
   const buckets = [0, 0, 0, 0]; // S1 (mais antiga) … S4 (atual)
   const inWindow = (e: XpEventRow) => {
-    const diff = daysBetweenDateKeys(getLocalDateKey(new Date(e.created_at)), todayKey);
+    const diff = daysBetweenDateKeys(dayKeyOf(e), todayKey);
     return diff >= 0 && diff <= 27;
   };
   for (const e of events) {
     if (!inWindow(e)) continue;
-    const diff = daysBetweenDateKeys(getLocalDateKey(new Date(e.created_at)), todayKey);
+    const diff = daysBetweenDateKeys(dayKeyOf(e), todayKey);
     const idx = 3 - Math.floor(diff / 7); // diff 0 → S4 (idx 3)
     buckets[idx] += e.amount;
   }
@@ -85,9 +108,9 @@ function yearlyMetrics(events: XpEventRow[], today: Date) {
     sums.set(k, 0);
   }
   const allowed = new Set(order);
-  const inWindow = (e: XpEventRow) => allowed.has(keyOf(new Date(e.created_at)));
+  const inWindow = (e: XpEventRow) => allowed.has(monthKeyOfEvent(e));
   for (const e of events) {
-    const k = keyOf(new Date(e.created_at));
+    const k = monthKeyOfEvent(e);
     if (allowed.has(k)) sums.set(k, (sums.get(k) ?? 0) + e.amount);
   }
   const series: XpPoint[] = order.map((k) => {
@@ -108,7 +131,7 @@ function windowTotals(
   for (const e of events) {
     if (!inWindow(e)) continue;
     xpInPeriod += e.amount;
-    if (e.kind === "gain") missionsCompleted += 1;
+    if (isCompletion(e)) missionsCompleted += 1;
   }
   return { series, xpInPeriod: Math.max(0, xpInPeriod), missionsCompleted };
 }
@@ -120,6 +143,8 @@ const META: Record<MetricsPeriod, { chartTitle: string; seriesAxisLabel: string 
 };
 
 interface UseMetricsArgs {
+  /** id do usuário logado. null = sem sessão ainda (não busca). */
+  userId: string | null;
   /** missões do usuário (snapshot, para conclusão por categoria). */
   missions: Mission[];
   /** maior streak já atingido (profile.best_streak). */
@@ -131,24 +156,34 @@ interface UseMetricsArgs {
  * do tempo) e do snapshot de missões (conclusão por categoria). Conta nova =
  * tudo zerado; cresce conforme o usuário conclui missões.
  */
-export function useMetrics({ missions, bestStreak }: UseMetricsArgs) {
+export function useMetrics({ userId, missions, bestStreak }: UseMetricsArgs) {
   const [events, setEvents] = useState<XpEventRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
+  // Depende de userId: antes disto o efeito rodava uma vez na montagem, sem
+  // esperar a sessão, e nunca tentava de novo.
   useEffect(() => {
+    if (!userId) return;
     let active = true;
-    getXpEvents()
+    setError(false);
+    getXpEvents(userId)
       .then((rows) => {
         if (active) setEvents(rows);
       })
-      .catch((e) => console.error("Erro ao carregar eventos de XP:", e))
+      .catch((e) => {
+        console.error("Erro ao carregar eventos de XP:", e);
+        // Sem isto a página mostra "0" como se fosse um dado válido — foi o que
+        // escondeu este bug: a falha era indistinguível de "conta nova".
+        if (active) setError(true);
+      })
       .finally(() => {
         if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [userId]);
 
   const byPeriod = useMemo<Record<MetricsPeriod, PeriodMetrics>>(() => {
     const today = startOfDay(new Date());
@@ -177,5 +212,5 @@ export function useMetrics({ missions, bestStreak }: UseMetricsArgs) {
     };
   }, [events, missions, bestStreak]);
 
-  return { byPeriod, loading };
+  return { byPeriod, loading, error };
 }
